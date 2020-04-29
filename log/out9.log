@@ -1,0 +1,11 @@
+Loading files : ../testcase_new/sy9r.csv
+Loading files : ../testcase_new/syn9.csv
+construct path table...OK
+initial routing...OK
+round 1 cost = 450732975927, runtime = 1672.10 seconds
+round 2 cost = 450068493216, runtime = 3333.84 seconds
+round 3 cost = 455448324561, runtime = 4978.45 seconds
+check all net have been routed correctly...OK
+runtime = 4992.72 seconds
+best round = 2
+improve = 0.15%
