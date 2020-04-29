@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "string": "cpp",
+        "ostream": "cpp",
+        "fstream": "cpp",
+        "*.tcc": "cpp",
+        "vector": "cpp",
+        "iostream": "cpp",
+        "deque": "cpp",
+        "iomanip": "cpp",
+        "new": "cpp",
+        "cmath": "cpp"
+    },
+    "C_Cpp.default.cppStandard": "c++11"
+}

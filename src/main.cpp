@@ -15,12 +15,12 @@ int main(int argc, char **argv)
     char output[100] = "../output/result_";
     strcpy(num, k);
 
-    char f11[100] = "../testcase_new/sy";
+    char f11[100] = "../../benchmark/testcase_new/sy";
     char f12[20] = "r.csv";
     strcat(f11, num);
     strcat(f11, f12);
 
-    char f21[100] = "../testcase_new/syn";
+    char f21[100] = "../../benchmark/testcase_new/syn";
     char f22[20] = ".csv";
     strcat(f21, num);
     strcat(f21, f22);
@@ -59,7 +59,7 @@ int main(int argc, char **argv)
         fgr.global_routing_ver2();
         fgr.total_cost = fgr.compute_TDM_cost();
         cout << fixed << setprecision(0) << fgr.total_cost;
-        cout << ", runtime = " << fixed << setprecision(2) << (double)(clock() - t1) / (double)CLOCKS_PER_SEC << " seconds\n";      
+        cout << ", runtime = " << fixed << setprecision(2) << (double)(clock() - t1) / (double)CLOCKS_PER_SEC << " seconds\n";
 
         if (fgr.total_cost < best)
         {
