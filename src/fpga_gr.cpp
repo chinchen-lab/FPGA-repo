@@ -1213,14 +1213,29 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
         auto ch = map_to_channel[ch_name];
         double his_cost = ch->history_used[direct];
 
-        //compute cost
-        //sig_weight = (sig_weight == 0) ? 1 : sig_weight;
-        //his_cost = (his_cost == 0) ? 1 : his_cost;
+        //check weight
+        if (i > 0)
+        {
+            //check if current node is a sink ?
+            for (const auto &s : n.sink)
+            {
+                if (path[i] == s.id)
+                {
+                    //check if sink weight is larger than current weight
+                    if (s.weight > weight)
+                    {
+                        weight = s.weight; //update weight
+                    }
+
+                    break;
+                }
+            }
+        }
 
         int wirelength = i + 1;
         ch_used = (ch_used == 0) ? 1 : ch_used;
         appr_tdm = (appr_tdm < 1) ? 1 : appr_tdm;
-        double congestion_cost = cost_par + appr_tdm + his_cost / (double)round;
+        double congestion_cost = cost_par + weight * (appr_tdm + his_cost / (double)round);
         double cost_cur = congestion_cost;
 
         cost_par = cost_cur;
