@@ -1196,6 +1196,7 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
     double hop_num = path.size() - 1;
     double total_used = 0.0, net_cost = 0.0;
     double total_his_cost = 0.0;
+    double total_weight = 0.0;
     double cost_par = 0.0;
 
     for (size_t i = 0; i < path.size() - 1; i++)
@@ -1232,18 +1233,19 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
             }
         }
 
+        total_weight += weight;
         int wirelength = i + 1;
         ch_used = (ch_used == 0) ? 1 : ch_used;
         appr_tdm = (appr_tdm < 1) ? 1 : appr_tdm;
-        double congestion_cost = cost_par + weight * (appr_tdm + his_cost / (double)round);
+        double congestion_cost = cost_par + weight * (appr_tdm + 0 * his_cost / (double)round);
         double cost_cur = congestion_cost;
 
         cost_par = cost_cur;
         cost_path += cost_cur;
-        total_his_cost += his_cost;
+        total_his_cost += his_cost / (double)round;
     }
 
-    cost = cost_path; //history + current path cost
+    cost = total_his_cost * cost_path; //history + current path cost
 
     return cost;
 }
@@ -2074,12 +2076,19 @@ void FPGA_Gr::initial_route_result()
         int cur_channel_tdm = (int)ceil((double)chd.second / (double)cap);
         double his_cost = 0.0;
 
-        for (const auto &node : ch->net_sigweight[direct])
+        if (cur_channel_tdm > 1)
         {
-            his_cost += ((node->signal_weight - minsgw) / (maxsgw - minsgw) + 1);
-        }
+            for (const auto &node : ch->net_sigweight[direct])
+            {
+                his_cost += ((node->signal_weight - minsgw) / (maxsgw - minsgw) + 1);
+            }
 
-        his_cost = his_cost / (double)cap;
+            his_cost = his_cost / (double)cap;
+        }
+        else
+        {
+            his_cost = 0;
+        }
 
         //his_cost = cur_channel_tdm;
 

@@ -2,10 +2,10 @@ Loading files : ../../benchmark/testcase_new/sy2r.csv
 Loading files : ../../benchmark/testcase_new/syn2.csv
 construct path table...OK
 initial routing...OK
-round 1 cost = 427551762, runtime = 3.17 seconds
-round 2 cost = 424948558, runtime = 6.18 seconds
-round 3 cost = 427281697, runtime = 9.18 seconds
+round 1 cost = 427551762, runtime = 2.96 seconds
+round 2 cost = 424948558, runtime = 5.84 seconds
+round 3 cost = 427281697, runtime = 8.77 seconds
 check all net have been routed correctly...OK
-runtime = 9.26 seconds
+runtime = 8.84 seconds
 best round = 2
 improve = 0.61%
