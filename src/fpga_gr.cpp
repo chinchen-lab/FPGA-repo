@@ -2075,12 +2075,14 @@ void FPGA_Gr::initial_route_result()
         auto demand = chd.second;
         int cur_channel_tdm = (int)ceil((double)chd.second / (double)cap);
         double his_cost = 0.0;
+        double times = 1; //控制map的範圍-->ex. times = 2 --> map to [0,1]*2 + 1 = [1,2]
 
         if (cur_channel_tdm > 1)
         {
             for (const auto &node : ch->net_sigweight[direct])
             {
-                his_cost += ((node->signal_weight - minsgw) / (maxsgw - minsgw) + 1);
+                double norm_cost = (((node->signal_weight - minsgw) / (maxsgw - minsgw)) * times + 1);
+                his_cost += norm_cost;
             }
 
             his_cost = his_cost / (double)cap;

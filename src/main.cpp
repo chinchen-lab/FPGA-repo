@@ -29,7 +29,7 @@ int main(int argc, char **argv)
     strcat(output, ".out");
 
     //test random
-    int multi_round = 4; //跑幾次init route(含第一次)
+    int multi_round = 3; //跑幾次init route(含第一次)
 
     fgr.getfile(f11, f21);
     cout << "Loading files : " << f11 << endl;
