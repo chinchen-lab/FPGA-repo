@@ -1198,6 +1198,7 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
     double total_his_cost = 0.0;
     double total_weight = 0.0;
     double cost_par = 0.0;
+    double sink_num = 1;
 
     for (size_t i = 0; i < path.size() - 1; i++)
     {
@@ -1222,6 +1223,8 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
             {
                 if (path[i] == s.id)
                 {
+                    sink_num++;
+
                     //check if sink weight is larger than current weight
                     if (s.weight > weight)
                     {
@@ -1245,7 +1248,8 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
         total_his_cost += his_cost / (double)round;
     }
 
-    cost = total_his_cost * cost_path; //history + current path cost
+    cost = (1 + total_his_cost) * cost_path; //history + current path cost
+    cost /= sink_num;
 
     return cost;
 }
