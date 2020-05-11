@@ -1238,9 +1238,15 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
 
         total_weight += weight;
         int wirelength = i + 1;
-        ch_used = (ch_used == 0) ? 1 : ch_used;
+        
+        if (ceil(appr_tdm) <= ceil(before_tdm))
+        {
+            ch_used = 0;
+        }   
+        
         appr_tdm = (appr_tdm < 1) ? 1 : appr_tdm;
-        double congestion_cost = cost_par + weight * (appr_tdm + 0 * his_cost / (double)round);
+        double alpha = his_cost / (double)round;
+        double congestion_cost = cost_par + (1 + alpha) * weight * appr_tdm + ch_used;
         double cost_cur = congestion_cost;
 
         cost_par = cost_cur;
@@ -1248,7 +1254,7 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
         total_his_cost += his_cost / (double)round;
     }
 
-    cost = (1 + total_his_cost) * cost_path; //history + current path cost
+    cost = cost_path; //history + current path cost
     cost /= sink_num;
 
     return cost;
