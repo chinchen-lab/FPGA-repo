@@ -1,5 +1,7 @@
 #include "fpga_gr.h"
 
+/********************* Sub-channel *********************/
+
 bool comp_weight(const SubNet &lhs, const SubNet &rhs)
 {
     return lhs.weight > rhs.weight;
@@ -1209,8 +1211,15 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
         //double sig_weight = n.edge_crit[make_pair(path[i + 1], path[i])];
         const int &direct = (path[i + 1] < path[i]) ? 0 : 1; //min-->max : 0, max-->min : 1
         double ch_used = channel_used(path[i + 1], path[i]);
-        double before_tdm = (double)ch_used / (double)cap;
+        
+        double before_tdm = (double)(ch_used) / (double)cap;
         double appr_tdm = (double)(ch_used + 1) / (double)cap; //src to sink appr. tdm
+        
+        if (appr_tdm > before_tdm)
+        {
+            appr_tdm = before_tdm + 8;
+        }
+
         auto ch_name = get_channel_name(path[i], path[i + 1]);
         auto ch = map_to_channel[ch_name];
         double his_cost = ch->history_used[direct];
@@ -1238,12 +1247,12 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
 
         total_weight += weight;
         int wirelength = i + 1;
-        
+
         if (ceil(appr_tdm) <= ceil(before_tdm))
         {
             ch_used = 0;
-        }   
-        
+        }
+
         appr_tdm = (appr_tdm < 1) ? 1 : appr_tdm;
         double alpha = his_cost / (double)round;
         double congestion_cost = cost_par + (1 + alpha) * weight * appr_tdm;
@@ -1425,8 +1434,8 @@ int FPGA_Gr::channel_used(int s, int t) //return channel(direct s-->t) used
 double FPGA_Gr::channel_TDM(int s, int t) //return src to target appr. TDM
 {
     const int &demand = channel_demand[make_pair(s, t)];
-    int TDM = ceil((double)demand / (double)channel_capacity[make_pair(s, t)]);
-
+    double TDM = ceil((double)demand / (double)channel_capacity[make_pair(s, t)]);
+    //TDM = (TDM <= 1) ? 1 : (int)ceil(TDM / 8) * 8; 
     return TDM;
 }
 

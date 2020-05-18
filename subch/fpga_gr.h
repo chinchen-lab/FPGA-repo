@@ -19,6 +19,8 @@
 
 using namespace std;
 
+/********************* Sub-channel *********************/
+
 class Channel;
 
 class FPGA
