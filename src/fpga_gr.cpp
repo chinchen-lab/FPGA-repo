@@ -1238,12 +1238,12 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
 
         total_weight += weight;
         int wirelength = i + 1;
-        
+
         if (ceil(appr_tdm) <= ceil(before_tdm))
         {
             ch_used = 0;
-        }   
-        
+        }
+
         appr_tdm = (appr_tdm < 1) ? 1 : appr_tdm;
         double alpha = his_cost / (double)round;
         double congestion_cost = cost_par + (1 + alpha) * weight * appr_tdm;
@@ -1335,17 +1335,6 @@ void FPGA_Gr::show_net_channel_table()
 {
     for (const auto &ch : map_to_channel)
     {
-        /*
-        if (channel_demand[ch.first] == 0)
-        {
-            continue;
-        }
-
-        cout << "Channel (" << ch.first.first << ", " << ch.first.second << ") : " << endl;
-        cout << "Total used record in channel table : " << ch.second->net_ch_weight.size() << endl;
-        cout << "Total used record in channel_demand : " << channel_demand[ch.first] << endl;
-        cout << "Check all channel have been recorded in net...";
-        */
         bool check = true;
         for (const auto &n : ch.second->net_ch_weight)
         {
@@ -1364,6 +1353,7 @@ void FPGA_Gr::show_net_channel_table()
         cout << endl;
     }
 }
+
 void FPGA_Gr::compute_edge_weight(Net &n, Tree_Node *root)
 {
     //set all sink weight

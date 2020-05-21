@@ -713,11 +713,6 @@ void FPGA_Gr::global_routing_ver2()
 
     srand(time(NULL));
 
-    /*if (round > 1)
-    {
-        sort(net.begin(), net.end(), comp_netcost);
-    }*/
-
     for (auto &n : net)
     {
         //cout << n.name << " all subnets' paths" << endl;
@@ -737,80 +732,7 @@ void FPGA_Gr::global_routing_ver2()
         {
             //cout << "route sink " << sb.sink << endl;
 
-            if (sources.size() == 0 && routed_net == 0) //route first net's first subnet
-            {
-                int best_cost = INT_MAX;
-                vector<int> path; //sink->source path result
-                path.push_back(sb.sink);
-                sources.push_back(sb.sink);
-
-                //find minimum hop
-                int h = path_table_ver2[sb.source][sb.sink].cand[0].hops;
-
-                if (h == 1) //hops = 1 --> done !
-                {
-                    path.push_back(sb.source);
-                    sources.push_back(sb.source);
-                    allpaths.push_back(path);
-
-                    if (edge_lut.count(make_pair(sb.source, sb.sink)) == 0) //edge沒出現過
-                    {
-                        edge_lut[make_pair(sb.source, sb.sink)] = 1;
-                        add_channel_demand(sb.source, sb.sink);
-                    }
-
-                    continue;
-                }
-
-                int p = path_table_ver2[sb.source][sb.sink].cand[0].parent[0];
-                path.push_back(p);
-                sources.push_back(p);
-
-                if (edge_lut.count(make_pair(p, sb.sink)) == 0)
-                {
-                    edge_lut[make_pair(p, sb.sink)] = 1;
-                    add_channel_demand(p, sb.sink);
-                }
-
-                h--;
-
-                while (h != 1) //not done
-                {
-                    int pre = p;
-                    //find parent
-                    for (const auto &cand : path_table_ver2[sb.source][p].cand)
-                    {
-                        if (cand.hops == h)
-                        {
-                            p = cand.parent[0];
-                            break;
-                        }
-                    }
-                    path.push_back(p);
-                    sources.push_back(p);
-
-                    if (edge_lut.count(make_pair(p, pre)) == 0)
-                    {
-                        edge_lut[make_pair(p, pre)] = 1;
-                        add_channel_demand(p, pre);
-                    }
-
-                    h--;
-                }
-
-                path.push_back(sb.source);
-                sources.push_back(sb.source);
-
-                if (edge_lut.count(make_pair(sb.source, p)) == 0)
-                {
-                    edge_lut[make_pair(sb.source, p)] = 1;
-                    add_channel_demand(sb.source, p);
-                }
-                allpaths.push_back(path);
-
-                continue;
-            }
-            else if (sources.size() == 0) //route net's first subnet
+            if (sources.size() == 0) //route net's first subnet
             {
                 vector<int> path; //sink->source path
                 path.push_back(sb.sink);
@@ -882,17 +804,7 @@ void FPGA_Gr::global_routing_ver2()
                     for (size_t i = 0; i < cand_path.size(); i++)
                     {
                         double try_cost = 0.0;
-                        for (size_t j = 0; j < cand_path[i].size() - 1; j++)
-                        {
-                            int s = cand_path[i][j + 1]; //source
-                            int t = cand_path[i][j];     //target
-                            int cap = channel_capacity[make_pair(s, t)];
-
-                            if (cap == 0)
-                                cap = 1;
-
-                            try_cost += (double)(channel_demand[make_pair(s, t)] + 1) / (double)cap;
-                        }
+                        try_cost = compute_cost_for_gr2(n, cand_path[i], sb, routed_net);
 
                         if (try_cost < best_cost)
                         {
@@ -1214,11 +1126,6 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
         
         double before_tdm = (double)(ch_used) / (double)cap;
         double appr_tdm = (double)(ch_used + 1) / (double)cap; //src to sink appr. tdm
-        
-        if (appr_tdm > before_tdm)
-        {
-            appr_tdm = before_tdm + 8;
-        }
 
         auto ch_name = get_channel_name(path[i], path[i + 1]);
         auto ch = map_to_channel[ch_name];
@@ -1373,6 +1280,7 @@ void FPGA_Gr::show_net_channel_table()
         cout << endl;
     }
 }
+
 void FPGA_Gr::compute_edge_weight(Net &n, Tree_Node *root)
 {
     //set all sink weight
