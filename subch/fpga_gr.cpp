@@ -295,6 +295,9 @@ void FPGA_Gr::getfile(char *sysfile, char *netfile)
         //cout << endl;
     }
     */
+
+    //srand(time(NULL));
+    //random_shuffle(net.begin(), net.end());
 }
 
 void FPGA_Gr::output_file(char *outfile, time_t t)
@@ -1123,7 +1126,7 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
         //double sig_weight = n.edge_crit[make_pair(path[i + 1], path[i])];
         const int &direct = (path[i + 1] < path[i]) ? 0 : 1; //min-->max : 0, max-->min : 1
         double ch_used = channel_used(path[i + 1], path[i]);
-        
+
         double before_tdm = (double)(ch_used) / (double)cap;
         double appr_tdm = (double)(ch_used + 1) / (double)cap; //src to sink appr. tdm
 
@@ -1162,7 +1165,7 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
 
         appr_tdm = (appr_tdm < 1) ? 1 : appr_tdm;
         double alpha = his_cost / (double)round;
-        double congestion_cost = cost_par + (1 + alpha) * weight * appr_tdm;
+        double congestion_cost = cost_par + (1 + alpha) * (weight + 6.5 * appr_tdm);
         double cost_cur = congestion_cost;
 
         cost_par = cost_cur;
@@ -1343,7 +1346,7 @@ double FPGA_Gr::channel_TDM(int s, int t) //return src to target appr. TDM
 {
     const int &demand = channel_demand[make_pair(s, t)];
     double TDM = ceil((double)demand / (double)channel_capacity[make_pair(s, t)]);
-    //TDM = (TDM <= 1) ? 1 : (int)ceil(TDM / 8) * 8; 
+    //TDM = (TDM <= 1) ? 1 : (int)ceil(TDM / 8) * 8;
     return TDM;
 }
 
@@ -2002,7 +2005,7 @@ void FPGA_Gr::initial_route_result()
         auto demand = chd.second;
         int cur_channel_tdm = (int)ceil((double)chd.second / (double)cap);
         double his_cost = 0.0;
-        double times = 1; //控制map的範圍-->ex. times = 2 --> map to [0,1]*2 + 1 = [1,2]
+        double times = 1; //控制map的範圍-->ex. times = 2 --> map to [0,1]*2 + 1 = [1,3]
 
         if (cur_channel_tdm > 1)
         {
