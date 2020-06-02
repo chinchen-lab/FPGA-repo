@@ -1,8 +1,0 @@
-ver 6.0
-point congestion cost = alpha * edge history cost * (approximate_tdm)^5
-edge history cost = ovf_num - capacity
-cost function = 原本cost function內容 + 當前path上所有點的(point congestion cost)總和
-
-complete
-1. channel table --> done
-2. reinitialize --> done

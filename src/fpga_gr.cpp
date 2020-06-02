@@ -1,5 +1,7 @@
 #include "fpga_gr.h"
 
+/********************* Sub-channel *********************/
+
 bool comp_weight(const SubNet &lhs, const SubNet &rhs)
 {
     return lhs.weight > rhs.weight;
@@ -8,6 +10,11 @@ bool comp_weight(const SubNet &lhs, const SubNet &rhs)
 bool comp_netcost(const Net &lhs, const Net &rhs)
 {
     return lhs.cost / (double)lhs.total_tree_edge < rhs.cost / (double)lhs.total_tree_edge;
+}
+
+bool comp_netsgw(const Net &lhs, const Net &rhs)
+{
+    return lhs.signal_weight/(double)lhs.sink.size() > rhs.signal_weight/(double)rhs.sink.size();
 }
 
 bool comp_edges(const Net &lhs, const Net &rhs)
@@ -293,6 +300,9 @@ void FPGA_Gr::getfile(char *sysfile, char *netfile)
         //cout << endl;
     }
     */
+
+    //srand(time(NULL));
+    //random_shuffle(net.begin(), net.end());
 }
 
 void FPGA_Gr::output_file(char *outfile, time_t t)
@@ -709,12 +719,12 @@ void FPGA_Gr::global_routing_ver2()
     int routed_net = 0;
     int hop_limit = LIMIT_HOP; //最多嘗試與最小hop數差幾個hop的限制條件
 
-    srand(time(NULL));
+    //srand(time(NULL));
 
-    /*if (round > 1)
+    if (round > 1)
     {
-        sort(net.begin(), net.end(), comp_netcost);
-    }*/
+        sort(net.begin(), net.end(), comp_netsgw);
+    }
 
     for (auto &n : net)
     {
@@ -735,80 +745,7 @@ void FPGA_Gr::global_routing_ver2()
         {
             //cout << "route sink " << sb.sink << endl;
 
-            if (sources.size() == 0 && routed_net == 0) //route first net's first subnet
-            {
-                int best_cost = INT_MAX;
-                vector<int> path; //sink->source path result
-                path.push_back(sb.sink);
-                sources.push_back(sb.sink);
-
-                //find minimum hop
-                int h = path_table_ver2[sb.source][sb.sink].cand[0].hops;
-
-                if (h == 1) //hops = 1 --> done !
-                {
-                    path.push_back(sb.source);
-                    sources.push_back(sb.source);
-                    allpaths.push_back(path);
-
-                    if (edge_lut.count(make_pair(sb.source, sb.sink)) == 0) //edge沒出現過
-                    {
-                        edge_lut[make_pair(sb.source, sb.sink)] = 1;
-                        add_channel_demand(sb.source, sb.sink);
-                    }
-
-                    continue;
-                }
-
-                int p = path_table_ver2[sb.source][sb.sink].cand[0].parent[0];
-                path.push_back(p);
-                sources.push_back(p);
-
-                if (edge_lut.count(make_pair(p, sb.sink)) == 0)
-                {
-                    edge_lut[make_pair(p, sb.sink)] = 1;
-                    add_channel_demand(p, sb.sink);
-                }
-
-                h--;
-
-                while (h != 1) //not done
-                {
-                    int pre = p;
-                    //find parent
-                    for (const auto &cand : path_table_ver2[sb.source][p].cand)
-                    {
-                        if (cand.hops == h)
-                        {
-                            p = cand.parent[0];
-                            break;
-                        }
-                    }
-                    path.push_back(p);
-                    sources.push_back(p);
-
-                    if (edge_lut.count(make_pair(p, pre)) == 0)
-                    {
-                        edge_lut[make_pair(p, pre)] = 1;
-                        add_channel_demand(p, pre);
-                    }
-
-                    h--;
-                }
-
-                path.push_back(sb.source);
-                sources.push_back(sb.source);
-
-                if (edge_lut.count(make_pair(sb.source, p)) == 0)
-                {
-                    edge_lut[make_pair(sb.source, p)] = 1;
-                    add_channel_demand(sb.source, p);
-                }
-                allpaths.push_back(path);
-
-                continue;
-            }
-            else if (sources.size() == 0) //route net's first subnet
+            if (sources.size() == 0) //route net's first subnet
             {
                 vector<int> path; //sink->source path
                 path.push_back(sb.sink);
@@ -880,17 +817,7 @@ void FPGA_Gr::global_routing_ver2()
                     for (size_t i = 0; i < cand_path.size(); i++)
                     {
                         double try_cost = 0.0;
-                        for (size_t j = 0; j < cand_path[i].size() - 1; j++)
-                        {
-                            int s = cand_path[i][j + 1]; //source
-                            int t = cand_path[i][j];     //target
-                            int cap = channel_capacity[make_pair(s, t)];
-
-                            if (cap == 0)
-                                cap = 1;
-
-                            try_cost += (double)(channel_demand[make_pair(s, t)] + 1) / (double)cap;
-                        }
+                        try_cost = compute_cost_for_gr2(n, cand_path[i], sb, routed_net);
 
                         if (try_cost < best_cost)
                         {
@@ -1189,6 +1116,15 @@ void FPGA_Gr::global_routing_ver2()
     }*/
 }
 
+void FPGA_Gr::global_routing_ver3()
+{
+    int hop_limit = LIMIT_HOP; //最多嘗試與最小hop數差幾個hop的限制條件
+    vector<pair<Net, SubNet>> subnets;
+
+
+
+}
+
 double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubNet &sbnet, int routed_net)
 {
     double cost = 0.0, cost_path = 0.0, appr_tdm = 0.0;
@@ -1209,8 +1145,10 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
         //double sig_weight = n.edge_crit[make_pair(path[i + 1], path[i])];
         const int &direct = (path[i + 1] < path[i]) ? 0 : 1; //min-->max : 0, max-->min : 1
         double ch_used = channel_used(path[i + 1], path[i]);
-        double before_tdm = (double)ch_used / (double)cap;
+
+        double before_tdm = (double)(ch_used) / (double)cap;
         double appr_tdm = (double)(ch_used + 1) / (double)cap; //src to sink appr. tdm
+
         auto ch_name = get_channel_name(path[i], path[i + 1]);
         auto ch = map_to_channel[ch_name];
         double his_cost = ch->history_used[direct];
@@ -1246,7 +1184,7 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
 
         appr_tdm = (appr_tdm < 1) ? 1 : appr_tdm;
         double alpha = his_cost / (double)round;
-        double congestion_cost = cost_par + (1 + alpha) * weight * appr_tdm;
+        double congestion_cost = cost_par + (1 + alpha) * (weight + 6.5 * appr_tdm);
         double cost_cur = congestion_cost;
 
         cost_par = cost_cur;
@@ -1335,6 +1273,17 @@ void FPGA_Gr::show_net_channel_table()
 {
     for (const auto &ch : map_to_channel)
     {
+        /*
+        if (channel_demand[ch.first] == 0)
+        {
+            continue;
+        }
+
+        cout << "Channel (" << ch.first.first << ", " << ch.first.second << ") : " << endl;
+        cout << "Total used record in channel table : " << ch.second->net_ch_weight.size() << endl;
+        cout << "Total used record in channel_demand : " << channel_demand[ch.first] << endl;
+        cout << "Check all channel have been recorded in net...";
+        */
         bool check = true;
         for (const auto &n : ch.second->net_ch_weight)
         {
@@ -1415,8 +1364,8 @@ int FPGA_Gr::channel_used(int s, int t) //return channel(direct s-->t) used
 double FPGA_Gr::channel_TDM(int s, int t) //return src to target appr. TDM
 {
     const int &demand = channel_demand[make_pair(s, t)];
-    int TDM = ceil((double)demand / (double)channel_capacity[make_pair(s, t)]);
-
+    double TDM = ceil((double)demand / (double)channel_capacity[make_pair(s, t)]);
+    //TDM = (TDM <= 1) ? 1 : (int)ceil(TDM / 8) * 8;
     return TDM;
 }
 
@@ -2075,7 +2024,7 @@ void FPGA_Gr::initial_route_result()
         auto demand = chd.second;
         int cur_channel_tdm = (int)ceil((double)chd.second / (double)cap);
         double his_cost = 0.0;
-        double times = 1; //控制map的範圍-->ex. times = 2 --> map to [0,1]*2 + 1 = [1,2]
+        double times = 1; //控制map的範圍-->ex. times = 2 --> map to [0,1]*2 + 1 = [1,3]
 
         if (cur_channel_tdm > 1)
         {

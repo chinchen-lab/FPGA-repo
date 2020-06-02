@@ -19,6 +19,8 @@
 
 using namespace std;
 
+/********************* Sub-channel *********************/
+
 class Channel;
 
 class FPGA
@@ -69,7 +71,7 @@ public:
     vector<pair<int, int>> channels;
     Tree_Node *rtree_root; //routing tree root
     map<pair<int, int>, int> edge_crit;
-    int total_tree_edge;
+    int total_tree_edge; //record # of tree edge
     double signal_weight;
 
     Net()
@@ -172,6 +174,8 @@ public:
 
     //history cost 2020/03/29
     void initial_route_result();
+
+    void global_routing_ver3();
 
     //channel direct 2020/04/08
     //void distribute_channel_capacity(); //依比例分配channel的capacity
