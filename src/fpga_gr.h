@@ -19,8 +19,6 @@
 
 using namespace std;
 
-/********************* Sub-channel *********************/
-
 class Channel;
 
 class FPGA
@@ -73,6 +71,7 @@ public:
     map<pair<int, int>, int> edge_crit;
     int total_tree_edge; //record # of tree edge
     double signal_weight;
+    vector<pair<vector<int>, SubNet>> allpaths;
 
     Net()
     {
@@ -128,6 +127,8 @@ public:
     int avg_tdm_ratio;
     int maxtdm, mintdm;
     double maxsgw, minsgw; // max and min signal weight
+    bool subnetbased;
+
     vector<FPGA> fpga;
     vector<Net> net;
     vector<SubNet> subnet;
@@ -142,6 +143,7 @@ public:
         sink_num = total_cost = total_demand = 0;
         maxsgw = maxtdm = 0;
         minsgw = mintdm = INT_MAX;
+        subnetbased = false;
     }
     ~FPGA_Gr() {}
     void getfile(char *, char *);
@@ -170,15 +172,19 @@ public:
     void construct_table_ver2(); //考慮hops數多1~2的可能
     void global_routing_ver2();  //考慮tdm(orcd  congestion)
     void show_path_table_ver2();
-    double compute_cost_for_gr2(Net &, const vector<int> &, const SubNet &, int routed_net);
+    double compute_cost_for_gr2(Net &, const vector<int> &, const SubNet &, int &sink_num);
 
     //history cost 2020/03/29
     void initial_route_result();
 
     void global_routing_ver3();
+    void routing_subtree(Net &, const vector<int> &);
 
     //channel direct 2020/04/08
     //void distribute_channel_capacity(); //依比例分配channel的capacity
+
+    //2020/06/21
+    void max_subpath_RR();
 };
 
 #endif

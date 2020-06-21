@@ -40,13 +40,22 @@ int main(int argc, char **argv)
 
     fgr.construct_table_ver2();
     cout << "initial routing...";
-    fgr.global_routing_ver2();
+    
+    fgr.global_routing_ver3();
+    
+    //fgr.global_routing_ver2();
     cout << "OK" << endl;
+
+    fgr.max_subpath_RR();
+    getchar();
 
     cout << "round 1 cost = ";
     fgr.total_cost = fgr.compute_TDM_cost();
     cout << fixed << setprecision(0) << fgr.total_cost;
     cout << ", runtime = " << fixed << setprecision(2) << (double)(clock() - t1) / (double)CLOCKS_PER_SEC << " seconds\n";
+    
+    //getchar();
+    
     double start = fgr.total_cost;
     double best = start;
     int best_round = 1;
@@ -56,7 +65,7 @@ int main(int argc, char **argv)
         cout << "round " << i + 1 << " cost = ";
         int count = 0;
         fgr.initial_route_result();
-        fgr.global_routing_ver2();
+        fgr.global_routing_ver3();
         fgr.total_cost = fgr.compute_TDM_cost();
         cout << fixed << setprecision(0) << fgr.total_cost;
         cout << ", runtime = " << fixed << setprecision(2) << (double)(clock() - t1) / (double)CLOCKS_PER_SEC << " seconds\n";
