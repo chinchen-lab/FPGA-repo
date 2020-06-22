@@ -185,6 +185,7 @@ public:
 
     //2020/06/21
     void max_subpath_RR();
+    vector<pair<int, int>> sub_allchannels(Tree_Node *root);
 };
 
 #endif

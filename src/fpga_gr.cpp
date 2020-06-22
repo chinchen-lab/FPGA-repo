@@ -162,7 +162,7 @@ Tree_Node *search_node(Tree_Node *root, int key)
 
 Tree_Node *copy_node(Tree_Node *source, Tree_Node *parent)
 {
-    Tree_Node *clone_node;
+    Tree_Node *clone_node = new Tree_Node();
 
     return clone_node;
 }
@@ -171,8 +171,22 @@ Tree_Node *tree_clone(Tree_Node *root)
 {
     auto cur_original = root;
     auto cur_cloned = copy_node(root, NULL);
+    auto clonedRoot = cur_cloned;
 
+    while (cur_original != NULL)
+    {
+        if (cur_cloned->children.size() == cur_original->children.size())
+        {
+            cur_original = cur_original->parent;
+            cur_cloned = cur_cloned->parent;
+        }
+        else
+        {
+            auto targetChild = cur_original->children;
+        }
+    }
 
+    return clonedRoot;
 }
 
 void FPGA_Gr::getfile(char *sysfile, char *netfile)
@@ -1348,7 +1362,7 @@ void FPGA_Gr::global_routing_ver3()
 
         total_time += ((double)(clock() - t2) / (double)CLOCKS_PER_SEC);
 
-        routing_subtree(net[par_net_id], cand_path[index]); //add path to routing tree
+        //routing_subtree(net[par_net_id], cand_path[index]); //add path to routing tree
         net[par_net_id].allpaths.push_back(make_pair(cand_path[index], sb.first));
     }
 
@@ -1367,10 +1381,10 @@ void FPGA_Gr::global_routing_ver3()
     }*/
 
     //construct routing tree
-    /*for (size_t i = 0; i < net.size(); i++)
+    for (size_t i = 0; i < net.size(); i++)
     {
         routing_tree(net[i], allpaths[i]);
-    }*/
+    }
 
     delete[] allpaths;
     delete[] edge_lut;
@@ -1656,10 +1670,10 @@ double FPGA_Gr::compute_TDM_cost()
 
     for (auto &n : net)
     {
-        if (subnetbased)
+        /*if (subnetbased)
         {
             compute_edge_weight(n, n.rtree_root);
-        }
+        }*/
 
         n.cost = 0.0;
         queue<Tree_Node *> fifo_queue;
@@ -2205,14 +2219,51 @@ void FPGA_Gr::rip_up_reroute(time_t t)
     //compute_TDM_cost();
 }
 
+vector<pair<int, int>> FPGA_Gr::sub_allchannels(Tree_Node *root) //return all channels of tree and 把 channel的demand都-1 (RR用)
+{
+    vector<pair<int, int>> allchannels;
+
+    if (root == NULL)
+    {
+        cout << "[error] function(allchannels) root is null !" << endl;
+        exit(1);
+    }
+
+    queue<Tree_Node *> fifo_queue;
+    fifo_queue.push(root);
+
+    while (fifo_queue.size() != 0)
+    {
+        Tree_Node *cur = fifo_queue.front();
+        fifo_queue.pop();
+
+        if (cur->children.size() == 0)
+            continue;
+
+        for (const auto &child : cur->children)
+        {
+            pair<int, int> chan;
+            chan = make_pair(cur->fpga_id, child->fpga_id);
+            channel_demand[chan]--;
+            allchannels.push_back(chan);
+            fifo_queue.push(child);
+        }
+    }
+
+    return allchannels;
+}
+
 void FPGA_Gr::max_subpath_RR()
 {
+    double old_cost = total_cost;
+
     for (auto &n : net)
     {
         //find rip-up path
         double max_cost = 0;
         int sb_idx, count = 0;
         int sink_num;
+        vector<pair<int, int>> inf_channel;
 
         for (auto &sb : n.allpaths)
         {
@@ -2261,6 +2312,48 @@ void FPGA_Gr::max_subpath_RR()
         }
 
         Tree_Node *node = search_node(n.rtree_root, rip_fpga_id);
+        Tree_Node *node_par = node->parent;
+
+        //cout << "before" << endl;
+        //show_tree(n.rtree_root);
+
+        //找出最後要拔掉的點 (這個點以下node都被拔掉，包含這個點)
+        Tree_Node *last_rip = node;
+        while (node_par->children.size() - 1 == 0 && node_par->fpga_id != n.source)
+        {
+            //int cur_rip = node_par->fpga_id;
+            last_rip = node_par;
+            node_par = node_par->parent;
+        }
+
+        //cout << "delete node : " << last_rip->fpga_id << endl;
+
+        //拔
+        for (auto it = node_par->children.begin(); it != node_par->children.end(); ++it)
+        {
+            if ((*it)->fpga_id == last_rip->fpga_id)
+            {
+                node_par->children.erase(it);
+                break;
+            }
+        }
+
+        pair<int, int> last_chan = make_pair(last_rip->parent->fpga_id, last_rip->fpga_id);
+        channel_demand[last_chan]--;
+        inf_channel.push_back(last_chan);
+        last_rip->parent = NULL; //delete node parent
+
+        //cout << "after" << endl;
+        compute_edge_weight(n, n.rtree_root);
+        //show_tree(n.rtree_root);
+
+        auto influence = sub_allchannels(last_rip); //把受影響channel的demand都-1，並記錄下來
+        inf_channel.insert(inf_channel.end(), influence.begin(), influence.end());
+        
+        //找出要reroute的sink
+
+        
+        getchar();
     }
 }
 
