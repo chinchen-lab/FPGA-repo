@@ -38,24 +38,32 @@ int main(int argc, char **argv)
     fgr.breakdown();
     cout << "construct path table...";
 
+    /*---------construct path table---------*/
     fgr.construct_table_ver2();
     cout << "initial routing...";
-    
+
+    /*---------global routing---------*/
     fgr.global_routing_ver3();
-    
     //fgr.global_routing_ver2();
     cout << "OK" << endl;
+    cout << "initial cost = " << fixed << setprecision(0) << fgr.compute_TDM_cost() << endl;
 
-    fgr.max_subpath_RR();
+    for (int i = 0; i < 3; i++)
+    {
+        cout << "iter " << i << " : ";
+        fgr.max_subpath_RR();
+        cout << "reroute cost = " << fgr.compute_TDM_cost() << endl;
+    }
+
     getchar();
 
     cout << "round 1 cost = ";
     fgr.total_cost = fgr.compute_TDM_cost();
     cout << fixed << setprecision(0) << fgr.total_cost;
     cout << ", runtime = " << fixed << setprecision(2) << (double)(clock() - t1) / (double)CLOCKS_PER_SEC << " seconds\n";
-    
+
     //getchar();
-    
+
     double start = fgr.total_cost;
     double best = start;
     int best_round = 1;
