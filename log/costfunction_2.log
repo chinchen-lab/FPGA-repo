@@ -1,3 +1,6 @@
 Loading files : ../../benchmark/testcase_new/sy2r.csv
 Loading files : ../../benchmark/testcase_new/syn2.csv
 construct path table...OK
+initial routing...OK
+initial cost = 415498582
+iter 0 : reroute cost = 407241846

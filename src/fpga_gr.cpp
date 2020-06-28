@@ -1122,11 +1122,13 @@ void FPGA_Gr::global_routing_ver3()
     vector<pair<SubNet, int>> subnet_order;
     vector<vector<int>> *allpaths; //紀錄每個net的所有subpath
     map<pair<int, int>, int> *edge_lut;
-    vector<int> *sources;
+    //vector<int> *sources;
+    map<int, int> *sources;
 
     allpaths = new vector<vector<int>>[net.size()];
     edge_lut = new map<pair<int, int>, int>[net.size()];
-    sources = new vector<int>[net.size()];
+    //sources = new vector<int>[net.size()];
+    sources = new map<int, int>[net.size()];
 
     //allpaths.resize(net.size());
     //edge_lut.resize(net.size());
@@ -1162,8 +1164,12 @@ void FPGA_Gr::global_routing_ver3()
         int sink = sb.first.sink;
 
         //check 這個 sink 是不是被 route 過
-        bool flag = false;
-        for (auto &src : sources[par_net_id])
+        if (sources[par_net_id].count(sink) > 0)
+        {
+            continue;
+        }
+        //bool flag = false;
+        /*for (auto &src : sources[par_net_id])
         {
             if (src == sink)
             {
@@ -1171,11 +1177,13 @@ void FPGA_Gr::global_routing_ver3()
                 break;
             }
         }
-
         if (flag)
         {
             continue;
-        }
+        }*/
+
+        /*if (par_net_id == 16100)
+            cout << "current subnet (src, sink) = (" << source << ", " << sink << ")\n";*/
 
         //cout << "current subnet (src, sink) = (" << source << ", " << sink << ")\n";
 
@@ -1188,6 +1196,7 @@ void FPGA_Gr::global_routing_ver3()
 
         if (sources[par_net_id].size() == 0)
         {
+            sources[par_net_id][source] = 1;
             src_candidate.push_back(source);
             minimum_hop = path_table_ver2[source][sink].cand[0].hops;
         }
@@ -1197,7 +1206,7 @@ void FPGA_Gr::global_routing_ver3()
             for (const auto &s : sources[par_net_id])
             {
                 int min = INT_MAX;
-                for (const auto &cand : path_table_ver2[s][sink].cand)
+                for (const auto &cand : path_table_ver2[s.first][sink].cand)
                 {
                     if (cand.hops < min)
                     {
@@ -1211,10 +1220,10 @@ void FPGA_Gr::global_routing_ver3()
 
             for (const auto &s : sources[par_net_id])
             {
-                int min = path_table_ver2[s][sink].cand[0].hops;
+                int min = path_table_ver2[s.first][sink].cand[0].hops;
                 if (min == min_hops)
                 {
-                    src_candidate.push_back(s);
+                    src_candidate.push_back(s.first);
                 }
             }
 
@@ -1223,6 +1232,11 @@ void FPGA_Gr::global_routing_ver3()
 
         for (const auto &src : src_candidate)
         {
+            /*if (par_net_id == 16100)
+            {
+                cout << "src cand : " << src << endl;
+            }*/
+
             const auto &pt_init = path_table_ver2[src][sink];
             for (const auto &cand : pt_init.cand)
             {
@@ -1235,6 +1249,10 @@ void FPGA_Gr::global_routing_ver3()
                 }
 
                 //cout << "cand hop = " << hops << endl;
+
+                /*if (par_net_id == 16100)
+                    cout << "cand hop = " << hops << endl;*/
+
                 for (const auto &par : cand.parent)
                 {
                     vector<int> path;
@@ -1246,6 +1264,13 @@ void FPGA_Gr::global_routing_ver3()
                     //cout << "construct path\n";
                     //cout << "push sink " << sink << endl;
                     //cout << "push node " << par << endl;
+
+                    /*if (par_net_id == 16100)
+                    {
+                        cout << "construct path\n";
+                        cout << "push sink " << sink << endl;
+                        cout << "push node " << par << endl;
+                    }*/
                 }
             }
             //path_queue.push(path);
@@ -1302,19 +1327,49 @@ void FPGA_Gr::global_routing_ver3()
         double best = INT_MAX;
         int index, count = 0;
 
-        /*if (par_net_id == 5730)
+        /*if (par_net_id == 16100)
         {
+
             cout << "\n-----------------------------" << endl;
+            if (par_net_id == 16100)
+            {
+                cout << "all srcs = ";
+                for (auto &src : sources[par_net_id])
+                {
+                    cout << src.first << " ";
+                }
+                cout << endl;
+            }
             cout << "cur sink = " << sb.first.sink << endl;
             cout << "all candidates : \n";
         }*/
 
-        for (const auto &path : cand_path)
+        for (auto &path : cand_path)
         {
             int sink_num;
+
+            //檢查path是否提前連到tree上了導致dummy node
+            int check_idx = 1;
+            for (int i = 1; i < path.size(); i++)
+            {
+                if (sources[par_net_id].count(path[i]) > 0)
+                {
+                    check_idx = i; //第一個連到tree的點
+                    break;
+                }
+            }
+            //pop多餘的點
+            if (check_idx < path.size() - 1)
+            {
+                for (int i = 0; i < path.size() - 1 - check_idx; i++)
+                {
+                    path.pop_back();
+                }
+            }
+
             double cost = compute_cost_for_gr2(net[par_net_id], path, sb.first, sink_num);
 
-            /*if (par_net_id == 5730)
+            /*if (par_net_id == 16100)
             {
                 cout << count << " : ";
                 for (auto &p : path)
@@ -1338,6 +1393,11 @@ void FPGA_Gr::global_routing_ver3()
 
         allpaths[par_net_id].push_back(cand_path[index]);
 
+        /*if (par_net_id == 16100)
+        {
+            cout << "choose no." << index << endl;
+        }*/
+
         for (size_t i = 0; i < cand_path[index].size() - 1; i++)
         {
             if (edge_lut[par_net_id].count(make_pair(cand_path[index][i + 1], cand_path[index][i])) == 0)
@@ -1345,7 +1405,11 @@ void FPGA_Gr::global_routing_ver3()
                 edge_lut[par_net_id][make_pair(cand_path[index][i + 1], cand_path[index][i])] = 1;
                 add_channel_demand(cand_path[index][i + 1], cand_path[index][i]);
             }
-            sources[par_net_id].push_back(cand_path[index][i]);
+            //sources[par_net_id].push_back(cand_path[index][i]);
+            sources[par_net_id][cand_path[index][i]] = 1;
+
+            /*if (par_net_id == 16100)
+                cout << "add " << cand_path[index][i] << " into sources\n";*/
         }
         //cout << "par = " << par_net_id << ", subnet : " << source << " " << sink << endl;
 
@@ -1354,12 +1418,8 @@ void FPGA_Gr::global_routing_ver3()
         //routing_subtree(net[par_net_id], cand_path[index]); //add path to routing tree
         net[par_net_id].allpaths.push_back(make_pair(cand_path[index], sb.first)); //for rip-up and reroute
 
-        /*if (par_net_id == 5730)
-        {
-            cout << "choose no." << index << endl;
-            cout << "53,41 tdm=" << channel_TDM(53, 41) << endl;
-            getchar();
-        }*/
+        /*if (par_net_id == 16100)
+            getchar();*/
     }
 
     //cout << "route time = " << fixed << setprecision(2) << total_time << " seconds\n";
@@ -1382,9 +1442,9 @@ void FPGA_Gr::global_routing_ver3()
         routing_tree(net[i], allpaths[i]);
     }
 
-    /*cout << "5730 all paths" << endl;
+    /*cout << "16100 all paths" << endl;
 
-    for (const auto &path : allpaths[5730])
+    for (const auto &path : allpaths[16100])
     {
         for (const auto &p : path)
             cout << p << " ";
@@ -2294,9 +2354,9 @@ vector<pair<int, int>> FPGA_Gr::sub_allchannels(Net &n, Tree_Node *sbtree_root, 
     return allchannels;
 }
 
-vector<int> ret_all_node_and_edges(Tree_Node *root, map<pair<int, int>, int> &edge_lut) //return all nodes in the tree
+map<int, int> ret_all_node_and_edges(Tree_Node *root, map<pair<int, int>, int> &edge_lut) //return all nodes in the tree
 {
-    vector<int> allnodes;
+    map<int, int> allnodes;
 
     queue<Tree_Node *> fifo_queue;
     fifo_queue.push(root);
@@ -2306,7 +2366,8 @@ vector<int> ret_all_node_and_edges(Tree_Node *root, map<pair<int, int>, int> &ed
         Tree_Node *cur = fifo_queue.front();
         fifo_queue.pop();
 
-        allnodes.push_back(cur->fpga_id);
+        //allnodes.push_back(cur->fpga_id);
+        allnodes[cur->fpga_id] = 1;
         //cout << "push node " << cur->fpga_id << " as source." << endl;
 
         if (cur->children.size() == 0)
@@ -2380,14 +2441,15 @@ void FPGA_Gr::max_subpath_RR()
             rip_fpga_id = rip_path[0];
         }
 
-        Tree_Node *node = search_node(n.rtree_root, rip_fpga_id);
-        Tree_Node *node_par = node->parent;
-
-        /*if (n.id == 5730)
+        if (n.id == 5162)
         {
             cout << "before" << endl;
             show_tree(n.rtree_root);
-        }*/
+        }
+
+        Tree_Node *node = search_node(n.rtree_root, rip_fpga_id);
+        Tree_Node *node_par = node->parent;
+
         //cout << "before" << endl;
         //show_tree(n.rtree_root);
 
@@ -2401,6 +2463,10 @@ void FPGA_Gr::max_subpath_RR()
         }
 
         //cout << "delete node : " << last_rip->fpga_id << endl;
+        if (n.id == 5162)
+        {
+            cout << "delete node : " << last_rip->fpga_id << endl;
+        }
 
         //拔
         for (auto it = node_par->children.begin(); it != node_par->children.end(); ++it)
@@ -2422,11 +2488,11 @@ void FPGA_Gr::max_subpath_RR()
         compute_edge_weight(n, n.rtree_root);
         //show_tree(n.rtree_root);
 
-        /*if (n.id == 5730)
+        if (n.id == 5162)
         {
             cout << "after" << endl;
             show_tree(n.rtree_root);
-        }*/
+        }
 
         vector<SubNet> allsubnets;                                 //要reroute的sink
         auto influence = sub_allchannels(n, last_rip, allsubnets); //把受影響channel的demand都-1，並記錄下來，以及找出要reroute的sink
@@ -2468,8 +2534,8 @@ void FPGA_Gr::max_subpath_RR()
 
         //reroute all subnets
         map<pair<int, int>, int> edge_lut;
-        vector<int> sources = ret_all_node_and_edges(n.rtree_root, edge_lut); //rip up後的tree每個點都可當要reroute的sink的source
-        int hop_limit = LIMIT_HOP;                                            //最多嘗試與最小hop數差幾個hop的限制條件
+        map<int, int> sources = ret_all_node_and_edges(n.rtree_root, edge_lut); //rip up後的tree每個點都可當要reroute的sink的source
+        int hop_limit = LIMIT_HOP;                                              //最多嘗試與最小hop數差幾個hop的限制條件
 
         for (auto &sb : allsubnets)
         {
@@ -2478,17 +2544,7 @@ void FPGA_Gr::max_subpath_RR()
             int sink = sb.sink;
 
             //check 這個 sink 是不是被 route 過
-            bool flag = false;
-            for (auto &src : sources)
-            {
-                if (src == sink)
-                {
-                    flag = true;
-                    break;
-                }
-            }
-
-            if (flag)
+            if (sources.count(sink) > 0)
             {
                 continue;
             }
@@ -2506,7 +2562,7 @@ void FPGA_Gr::max_subpath_RR()
             for (const auto &s : sources)
             {
                 int min = INT_MAX;
-                for (const auto &cand : path_table_ver2[s][sink].cand)
+                for (const auto &cand : path_table_ver2[s.first][sink].cand)
                 {
                     if (cand.hops < min)
                     {
@@ -2516,9 +2572,10 @@ void FPGA_Gr::max_subpath_RR()
                 const int &tmp = min;
                 if (tmp < min_hops && tmp != 0)
                     min_hops = tmp;
+                src_candidate.push_back(s.first); //20200628 add...(1)
             }
 
-            src_candidate = sources;
+            //src_candidate = sources;      //20200628 delete...(1)
             minimum_hop = min_hops;
 
             //print all source candidate
@@ -2610,10 +2667,48 @@ void FPGA_Gr::max_subpath_RR()
             double best = INT_MAX;
             int index, count = 0;
 
-            for (const auto &path : cand_path)
+            if (n.id == 5162)
+            {
+                cout << "\n-----------------------------" << endl;
+                cout << "cur sink = " << sb.sink << endl;
+                cout << "all candidates : \n";
+            }
+
+            for (auto &path : cand_path)
             {
                 int sink_num;
+
+                //檢查path是否提前連到tree上了導致dummy node
+                int check_idx = 1;
+                for (int i = 1; i < path.size(); i++)
+                {
+                    if (sources.count(path[i]) > 0)
+                    {
+                        check_idx = i; //第一個連到tree的點
+                        break;
+                    }
+                }
+                //pop多餘的點
+                if (check_idx < path.size() - 1)
+                {
+                    for (int i = 0; i < path.size() - 1 - check_idx; i++)
+                    {
+                        path.pop_back();
+                    }
+                }
+
                 double cost = compute_cost_for_gr2(net[par_net_id], path, sb, sink_num);
+
+                /*if (n.id == 5162)
+                {
+                    cout << count << " : ";
+                    for (auto &p : path)
+                    {
+                        cout << p << " ";
+                    }
+                    cout << ", sink num = " << sink_num;
+                    cout << ", cost = " << cost << endl;
+                }*/
 
                 if (cost < best)
                 {
@@ -2629,6 +2724,11 @@ void FPGA_Gr::max_subpath_RR()
             allpaths.push_back(cand_path[index]);
             n.allpaths.push_back(make_pair(cand_path[index], sb));
 
+            /*if (n.id == 5162)
+            {
+                cout << "choose " << index << endl;
+            }*/
+
             for (size_t i = 0; i < cand_path[index].size() - 1; i++)
             {
                 if (edge_lut.count(make_pair(cand_path[index][i + 1], cand_path[index][i])) == 0)
@@ -2636,7 +2736,8 @@ void FPGA_Gr::max_subpath_RR()
                     edge_lut[make_pair(cand_path[index][i + 1], cand_path[index][i])] = 1;
                     add_channel_demand(cand_path[index][i + 1], cand_path[index][i]);
                 }
-                sources.push_back(cand_path[index][i]);
+                //sources.push_back(cand_path[index][i]);
+                sources[cand_path[index][i]] = 1;
             }
             //cout << "par = " << par_net_id << ", subnet : " << source << " " << sink << endl;
 
@@ -2680,25 +2781,6 @@ void FPGA_Gr::max_subpath_RR()
     }
 
     //cout << "ok" << endl;
-
-    /*queue<Tree_Node *> fifo_queue;
-    fifo_queue.push(net[5730].rtree_root);
-
-    while (fifo_queue.size() != 0)
-    {
-        Tree_Node *cur = fifo_queue.front();
-        fifo_queue.pop();
-
-        if (cur->children.size() == 0)
-            continue;
-
-        for (const auto &child : cur->children)
-        {
-            cout << "par cur " << cur->fpga_id << " " << child->fpga_id << " : TDM=" << channel_TDM(cur->fpga_id, child->fpga_id) << endl;
-            fifo_queue.push(child);
-        }
-        cout << endl;
-    }*/
 }
 
 void FPGA_Gr::check_result()
