@@ -2,6 +2,11 @@ Loading files : ../../benchmark/testcase_new/sy4r.csv
 Loading files : ../../benchmark/testcase_new/syn4.csv
 construct path table...OK
 initial routing...OK
-initial cost = 37825458631
-iter 0 : reroute cost = 38235593426
-iter 1 : reroute cost = 38556234708
+initial cost = 36959264668
+round 1 cost = 36959264668, runtime = 273.39 seconds
+round 2 cost = 36936277666, runtime = 553.25 seconds
+round 3 cost = 37009689611, runtime = 850.09 seconds
+check all net have been routed correctly...OK
+runtime = 851.54 seconds
+best round = 2
+improve = 0.06%

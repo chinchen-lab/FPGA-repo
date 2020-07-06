@@ -10,6 +10,11 @@ bool comp_sbnetcost(const pair<SubNet, int> &lhs, const pair<SubNet, int> &rhs)
     return lhs.second > rhs.second;
 }
 
+bool comp_netcrit(const Net &lhs, const Net &rhs)
+{
+    return lhs.criticality > rhs.criticality;
+}
+
 bool comp_netsgw(const Net &lhs, const Net &rhs)
 {
     return lhs.signal_weight / (double)lhs.sink.size() > rhs.signal_weight / (double)rhs.sink.size();
@@ -277,6 +282,7 @@ void FPGA_Gr::getfile(char *sysfile, char *netfile)
         for (size_t i = 0; i < n.sink.size(); i++)
         {
             n.sink[i].weight = t_weight[i];
+            n.total_sink_weight += t_weight[i];
             total_sink_weight += t_weight[i];
             sink_num++;
         }
@@ -1155,13 +1161,16 @@ void FPGA_Gr::global_routing_ver3()
     double total_time = 0.0;
 
     //start to route subnet
+    int sub_order = 0;
     for (auto &sb : subnet_order)
     {
         auto t2 = clock();
-
         const auto &par_net_id = sb.first.parent_net;
         int source = sb.first.source;
         int sink = sb.first.sink;
+
+        net[par_net_id].total_order += sub_order;
+        sub_order++;
 
         //check 這個 sink 是不是被 route 過
         if (sources[par_net_id].count(sink) > 0)
@@ -1415,7 +1424,7 @@ void FPGA_Gr::global_routing_ver3()
 
         total_time += ((double)(clock() - t2) / (double)CLOCKS_PER_SEC);
 
-        //routing_subtree(net[par_net_id], cand_path[index]); //add path to routing tree
+        routing_subtree(net[par_net_id], cand_path[index]);                        //add path to routing tree
         net[par_net_id].allpaths.push_back(make_pair(cand_path[index], sb.first)); //for rip-up and reroute
 
         /*if (par_net_id == 16100)
@@ -1437,10 +1446,10 @@ void FPGA_Gr::global_routing_ver3()
     }*/
 
     //construct routing tree
-    for (size_t i = 0; i < net.size(); i++)
+    /*for (size_t i = 0; i < net.size(); i++)
     {
         routing_tree(net[i], allpaths[i]);
-    }
+    }*/
 
     /*cout << "16100 all paths" << endl;
 
@@ -1742,10 +1751,12 @@ double FPGA_Gr::compute_TDM_cost()
 
     for (auto &n : net)
     {
-        /*if (subnetbased)
+        n.net_initialize();
+
+        if (subnetbased)
         {
             compute_edge_weight(n, n.rtree_root);
-        }*/
+        }
         //cout << n.name << endl;
 
         n.cost = 0.0;
@@ -1773,9 +1784,16 @@ double FPGA_Gr::compute_TDM_cost()
             const int &cur_id = cur->fpga_id;
             //cout << "par cur = " << par_id << " " << cur_id << endl;
             double tdm_ratio = channel_TDM(par_id, cur_id);
+
             maxtdm = (tdm_ratio > maxtdm) ? tdm_ratio : maxtdm;
             mintdm = (tdm_ratio < mintdm) ? tdm_ratio : mintdm;
+
+            n.max_tdm = (tdm_ratio > n.max_tdm) ? tdm_ratio : n.max_tdm;
+            n.min_tdm = (tdm_ratio < n.min_tdm) ? tdm_ratio : n.min_tdm;
+            n.total_tdm += tdm_ratio;
             n.cost += (tdm_ratio * (double)cur->edge_weight);
+            n.total_edge_weight += (double)cur->edge_weight;
+
             total_tdm_ratio += tdm_ratio;
 
             //紀錄net中channel資訊
@@ -1805,6 +1823,7 @@ double FPGA_Gr::compute_TDM_cost()
     }
 
     avg_tdm_ratio = (int)ceil(total_tdm_ratio / total_tree_edge);
+    total_cost = cost;
     return cost;
 }
 
@@ -2294,7 +2313,7 @@ void FPGA_Gr::rip_up_reroute(time_t t)
     //compute_TDM_cost();
 }
 
-vector<pair<int, int>> FPGA_Gr::sub_allchannels(Net &n, Tree_Node *sbtree_root, vector<SubNet> &allsubnets) //return all channels of tree and 把 channel的demand都-1 (RR用)
+vector<pair<int, int>> FPGA_Gr::sub_allchannels(Net &n, Tree_Node *sbtree_root, vector<SubNet> &allsubnets, map<int, int> &all_rip_nodes) //return all channels of tree and 把 channel的demand都-1 (RR用)
 {
     vector<pair<int, int>> allchannels;
     map<int, int> sink_lut;
@@ -2317,6 +2336,7 @@ vector<pair<int, int>> FPGA_Gr::sub_allchannels(Net &n, Tree_Node *sbtree_root, 
     {
         Tree_Node *cur = fifo_queue.front();
         fifo_queue.pop();
+        all_rip_nodes[cur->fpga_id] = 1;
 
         //check當前pop出來的點是不是sink
         if (sink_lut.count(cur->fpga_id) != 0)
@@ -2387,13 +2407,38 @@ void FPGA_Gr::max_subpath_RR()
 {
     double old_cost = total_cost;
 
+    //決定要RR的Net order
     for (auto &n : net)
     {
+        double net_avg_skw = n.total_sink_weight / (double)n.sink.size();
+        //double edge_weight_penalty = n.total_edge_weight / (double)n.sink.size();
+        double edge_weight_penalty = (n.total_edge_weight / (double)n.total_tree_edge) - net_avg_skw;
+        //double weight_order = n.total_order / (double)n.sink.size(); //越先被route越先reroute
+
+        n.criticality = net_avg_skw * n.total_tdm + edge_weight_penalty;
+        //n.criticality *= weight_order;
+
+        //n.criticality = net_avg_skw * n.total_tdm;
+    }
+    sort(net.begin(), net.end(), comp_netcrit);
+    //random_shuffle(net.begin(), net.end());
+
+    for (int i = 0; i < (int)net.size(); i++)
+    {
+        if (i > 1.0 / 2.0 * net.size()) //挑出criticality大小前面1/3的net來RR
+            break;
+
+        auto &n = net[i];
+
+        n.cost = comptue_tree_TDM_cost(n.rtree_root);
+        double new_cost = old_cost - n.cost;
+
         //find rip-up path
         double max_cost = 0;
         int sb_idx, count = 0;
         int sink_num;
-        vector<pair<int, int>> inf_channel;
+        vector<pair<int, int>> inf_channel_sub;
+        vector<pair<int, int>> inf_channel_add;
 
         for (auto &sb : n.allpaths)
         {
@@ -2407,6 +2452,16 @@ void FPGA_Gr::max_subpath_RR()
                 sink_num = temp;
             }
             count++;
+
+            /*if (n.id == 3236)
+            {
+                cout << "before all paths : ";
+                for (auto &p : sb.first)
+                {
+                    cout << p << " ";
+                }
+                cout << endl;
+            }*/
         }
 
         //rip-up idx=sb_idx subne
@@ -2441,11 +2496,11 @@ void FPGA_Gr::max_subpath_RR()
             rip_fpga_id = rip_path[0];
         }
 
-        if (n.id == 5162)
+        /*if (n.id == 3236)
         {
-            cout << "before" << endl;
+            cout << "before tree" << endl;
             show_tree(n.rtree_root);
-        }
+        }*/
 
         Tree_Node *node = search_node(n.rtree_root, rip_fpga_id);
         Tree_Node *node_par = node->parent;
@@ -2463,10 +2518,10 @@ void FPGA_Gr::max_subpath_RR()
         }
 
         //cout << "delete node : " << last_rip->fpga_id << endl;
-        if (n.id == 5162)
+        /*if (n.id == 3236)
         {
             cout << "delete node : " << last_rip->fpga_id << endl;
-        }
+        }*/
 
         //拔
         for (auto it = node_par->children.begin(); it != node_par->children.end(); ++it)
@@ -2480,7 +2535,7 @@ void FPGA_Gr::max_subpath_RR()
 
         pair<int, int> last_chan = make_pair(last_rip->parent->fpga_id, last_rip->fpga_id);
         sub_channel_demand(last_chan.first, last_chan.second);
-        inf_channel.push_back(last_chan);
+        inf_channel_sub.push_back(last_chan);
         last_rip->parent = NULL; //delete node parent
 
         //cout << "-----------------\n";
@@ -2488,47 +2543,105 @@ void FPGA_Gr::max_subpath_RR()
         compute_edge_weight(n, n.rtree_root);
         //show_tree(n.rtree_root);
 
-        if (n.id == 5162)
+        /*if (n.id == 3236)
         {
             cout << "after" << endl;
             show_tree(n.rtree_root);
-        }
+        }*/
 
-        vector<SubNet> allsubnets;                                 //要reroute的sink
-        auto influence = sub_allchannels(n, last_rip, allsubnets); //把受影響channel的demand都-1，並記錄下來，以及找出要reroute的sink
-        inf_channel.insert(inf_channel.end(), influence.begin(), influence.end());
+        map<int, int> rip_node_lut;                                              //存放所有被拔掉的點
+        vector<SubNet> allsubnets;                                               //要reroute的sink
+        auto influence = sub_allchannels(n, last_rip, allsubnets, rip_node_lut); //把受影響channel的demand都-1，並記錄下來，以及找出要reroute的sink
+        inf_channel_sub.insert(inf_channel_sub.end(), influence.begin(), influence.end());
 
-        /*-------------------------------------------------------------------------------------------*/
-        //更新net中allpaths的資訊
-        map<int, int> reroute_sink_lut;
-        for (const auto &sb : allsubnets)
+        /*-------------------------------------更新net中allpaths的資訊-------------------------------------*/
+        /*for (const auto &sb : allsubnets)
         {
-            reroute_sink_lut[sb.sink] = 1;
-        }
+            rip_node_lut[sb.sink] = 1;
+        }*/
 
         vector<pair<vector<int>, SubNet>> new_allpaths;
         vector<vector<int>> allpaths; //記錄剩下的path+所有reroute完的path
 
-        for (auto &path : n.allpaths)
+        int i_checkpath = 0;
+        vector<int> first_path_temp;
+        for (const auto &path : n.allpaths)
         {
             bool flag = false; //檢查這個path的點是否有被拔掉
 
+            ///
+            vector<int> path_temp;
             for (auto &p : path.first)
             {
-                if (reroute_sink_lut.count(p) != 0)
+                if (rip_node_lut.count(p) == 0) //保留沒有被拔掉的點
+                {
+                    path_temp.push_back(p);
+                }
+                else
+                {
+                    flag = true;
+                }
+            }
+
+            if (flag) //subpath中的sink還在
+            {
+                new_allpaths.push_back(path);
+                allpaths.push_back(path.first);
+            }
+            else
+            {
+                SubNet temp;
+                temp.source = n.source;
+                temp.sink = path_temp.front();
+                temp.parent_net = n.id;
+                temp.weight = 0; //代表不是sink
+
+                new_allpaths.push_back(make_pair(path_temp, temp));
+                allpaths.push_back(path_temp);
+            }
+            ///
+            /*
+            for (auto &p : path.first)
+            {
+                if (rip_node_lut.count(p) == 0 && i_checkpath == 0)
+                {
+                    first_path_temp.push_back(p); //保留第一條沒有被拔掉的點
+                }
+                else if (rip_node_lut.count(p) != 0 && i_checkpath != 0)
                 {
                     flag = true; //有被拔掉
                     break;
                 }
             }
 
-            if (!flag) //if沒被拔掉
+            if (i_checkpath == 0)
+            {
+                SubNet temp;
+                temp.source = n.source;
+                temp.sink = first_path_temp.front();
+                temp.parent_net = n.id;
+                temp.weight = 0; //代表不是sink
+
+                new_allpaths.push_back(make_pair(first_path_temp, temp));
+                allpaths.push_back(first_path_temp);
+            }
+            else if (!flag) //if沒被拔掉
             {
                 new_allpaths.push_back(path);
                 allpaths.push_back(path.first);
             }
+            */
+            i_checkpath++;
         }
 
+        /*--------------------------------------backup old allpahts--------------------------------*/
+        vector<vector<int>> old_allpaths;
+        vector<pair<vector<int>, SubNet>> old_netallpaths;
+        for (const auto &apath : n.allpaths)
+        {
+            old_netallpaths.push_back(apath);
+            old_allpaths.push_back(apath.first);
+        }
         n.allpaths = new_allpaths;
         /*-------------------------------------------------------------------------------------------*/
 
@@ -2667,12 +2780,12 @@ void FPGA_Gr::max_subpath_RR()
             double best = INT_MAX;
             int index, count = 0;
 
-            if (n.id == 5162)
+            /*if (n.id == 3236)
             {
                 cout << "\n-----------------------------" << endl;
                 cout << "cur sink = " << sb.sink << endl;
                 cout << "all candidates : \n";
-            }
+            }*/
 
             for (auto &path : cand_path)
             {
@@ -2699,7 +2812,7 @@ void FPGA_Gr::max_subpath_RR()
 
                 double cost = compute_cost_for_gr2(net[par_net_id], path, sb, sink_num);
 
-                /*if (n.id == 5162)
+                /*if (n.id == 3236)
                 {
                     cout << count << " : ";
                     for (auto &p : path)
@@ -2724,7 +2837,7 @@ void FPGA_Gr::max_subpath_RR()
             allpaths.push_back(cand_path[index]);
             n.allpaths.push_back(make_pair(cand_path[index], sb));
 
-            /*if (n.id == 5162)
+            /*if (n.id == 3236)
             {
                 cout << "choose " << index << endl;
             }*/
@@ -2735,13 +2848,14 @@ void FPGA_Gr::max_subpath_RR()
                 {
                     edge_lut[make_pair(cand_path[index][i + 1], cand_path[index][i])] = 1;
                     add_channel_demand(cand_path[index][i + 1], cand_path[index][i]);
+                    inf_channel_add.push_back(make_pair(cand_path[index][i + 1], cand_path[index][i]));
                 }
                 //sources.push_back(cand_path[index][i]);
                 sources[cand_path[index][i]] = 1;
             }
             //cout << "par = " << par_net_id << ", subnet : " << source << " " << sink << endl;
 
-            routing_subtree(net[par_net_id], cand_path[index]); //add path to routing tree
+            routing_subtree(n, cand_path[index]); //add path to routing tree
         }
 
         //delete_tree(n.rtree_root);
@@ -2765,8 +2879,69 @@ void FPGA_Gr::max_subpath_RR()
         //cout << "-----------------\n";
         //cout << "after tree : \n";
         compute_edge_weight(n, n.rtree_root); //更新edge weight資訊
+        double new_net_cost = comptue_tree_TDM_cost(n.rtree_root);
+        new_cost += new_net_cost;
+
+        if (new_cost < old_cost)
+        {
+            /*
+            cout << n.name << " : ";
+            cout << "new net cost = " << new_net_cost << endl;
+            cout << "old cost = " << old_cost << ", new cost = " << new_cost << endl;
+            cout << " ---> update cost !!" << endl;
+            cout << endl;
+            */
+
+            old_cost = new_cost;
+            n.cost = new_net_cost;
+            //getchar();
+        }
+        else //還原
+        {
+            /*
+            cout << n.name << " : ";
+            cout << "old cost = " << old_cost << ", new cost = " << new_cost << endl;
+            */
+            n.allpaths = old_netallpaths;
+            delete_tree(n.rtree_root);
+
+            /*if (n.id == 3236)
+            {
+                for (const auto &path : old_allpaths)
+                {
+                    for (const auto &p : path)
+                    {
+                        cout << p << " ";
+                    }
+                    cout << endl;
+                }
+            }*/
+
+            routing_tree(n, old_allpaths);
+
+            /*----------------------------------------還原受影響channel----------------------------------------*/
+            for (const auto &ch : inf_channel_add) //將加過demand的channel減回去
+            {
+                sub_channel_demand(ch.first, ch.second);
+            }
+
+            for (const auto &ch : inf_channel_sub) //將減過demand的channel加回去
+            {
+                add_channel_demand(ch.first, ch.second);
+            }
+            /*-------------------------------------------------------------------------------------------------*/
+
+            compute_edge_weight(n, n.rtree_root);
+            //cout << "還原 cost --->" << comptue_tree_TDM_cost(n.rtree_root) + new_cost - new_net_cost << endl;
+            //cout << endl;
+            //getchar();
+        }
+
         //show_tree(n.rtree_root);
         //cout << endl;
+        /*if (n.id == 3236)
+            getchar();*/
+
         //getchar();
 
         /*if (n.id == 5730)

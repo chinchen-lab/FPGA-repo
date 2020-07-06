@@ -46,18 +46,21 @@ int main(int argc, char **argv)
     fgr.global_routing_ver3();
     //fgr.global_routing_ver2();
     cout << "OK" << endl;
-    cout << "initial cost = " << fixed << setprecision(0) << fgr.compute_TDM_cost() << endl;
+    double init_cost = fgr.compute_TDM_cost();
+    cout << "initial cost = " << fixed << setprecision(0) << init_cost << endl;
 
-    for (int i = 0; i < 3; i++)
+    for (int i = 0; i < 1; i++)
     {
         cout << "iter " << i << " : ";
         fgr.max_subpath_RR();
-        cout << "reroute cost = " << fgr.compute_TDM_cost() << endl;
+        double rr_cost = fgr.compute_TDM_cost();
+        cout << "reroute cost = " << rr_cost << endl;
+        cout << "improve = " << fixed << setprecision(2) << (init_cost - rr_cost) / init_cost * 100 << "%" << endl;
     }
 
-    getchar();
+    //getchar();
 
-    cout << "round 1 cost = ";
+    /*cout << "round 1 cost = ";
     fgr.total_cost = fgr.compute_TDM_cost();
     cout << fixed << setprecision(0) << fgr.total_cost;
     cout << ", runtime = " << fixed << setprecision(2) << (double)(clock() - t1) / (double)CLOCKS_PER_SEC << " seconds\n";
@@ -87,10 +90,10 @@ int main(int argc, char **argv)
         fgr.round++;
     }
 
-    double end = fgr.total_cost;
+    double end = fgr.total_cost;*/
     fgr.check_result();
     cout << "runtime = " << fixed << setprecision(2) << (double)(clock() - t1) / (double)CLOCKS_PER_SEC << " seconds\n";
-    cout << "best round = " << best_round << endl;
-    cout << "improve = " << fixed << setprecision(2) << (start - best) / start * 100 << "%" << endl;
+    //cout << "best round = " << best_round << endl;
+    //cout << "improve = " << fixed << setprecision(2) << (start - best) / start * 100 << "%" << endl;
     fgr.output_file(output, t1);
 }

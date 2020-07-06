@@ -62,22 +62,43 @@ public:
     int id;
     string name;
     int source;
+    double total_order; //記錄net中所有subnet 前次routing的次序index總和
     double cost;
+    double max_tdm, min_tdm, total_tdm, avg_tdm; //avg_tdm--> total_tdm/#tree edges
+    double total_edge_weight;
+    double total_sink_weight;
+    double criticality;
     bool sorted;
+
     vector<Sink> sink;
     vector<SubNet> sbnet;
     vector<pair<int, int>> channels;
     Tree_Node *rtree_root; //routing tree root
     map<pair<int, int>, int> edge_crit;
+
     int total_tree_edge; //record # of tree edge
     double signal_weight;
     vector<pair<vector<int>, SubNet>> allpaths;
+
+    void net_initialize()
+    {
+        total_tree_edge = 0;
+        total_tdm = 0.0;
+        total_edge_weight = 0.0;
+        max_tdm = 0.0;
+        min_tdm = INT_MAX;
+    }
 
     Net()
     {
         sorted = false;
         rtree_root = NULL;
         total_tree_edge = 0;
+        total_tdm = 0.0;
+        total_edge_weight = 0.0;
+        total_sink_weight = 0.0;
+        max_tdm = 0.0;
+        min_tdm = INT_MAX;
     }
 };
 
@@ -185,7 +206,7 @@ public:
 
     //2020/06/21
     void max_subpath_RR();
-    vector<pair<int, int>> sub_allchannels(Net &n, Tree_Node *sbtree_root, vector<SubNet> &allsubnets);
+    vector<pair<int, int>> sub_allchannels(Net &n, Tree_Node *sbtree_root, vector<SubNet> &allsubnets, map<int, int> &all_rip_nodes);
 };
 
 #endif

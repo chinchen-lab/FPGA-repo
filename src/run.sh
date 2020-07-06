@@ -7,5 +7,5 @@ killall fpga
 
 for i in $(seq 1 9)
 do
-    (../bin/./fpga $i > ../log/costfunction_$i.log )&
+    (../bin/./fpga $i > ../log/RR_0707_$i.log )&
 done
