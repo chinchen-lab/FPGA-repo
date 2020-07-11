@@ -3,3 +3,7 @@ Loading files : ../../benchmark/testcase_new/syn7.csv
 construct path table...OK
 initial routing...OK
 initial cost = 1658029907
+iter 0 : reroute cost = 1653274655
+improve = 0.29%
+check all net have been routed correctly...OK
+runtime = 55.53 seconds

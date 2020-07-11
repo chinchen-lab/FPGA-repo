@@ -9,7 +9,8 @@
         "deque": "cpp",
         "iomanip": "cpp",
         "new": "cpp",
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "unordered_map": "cpp"
     },
     "C_Cpp.default.cppStandard": "c++11"
 }

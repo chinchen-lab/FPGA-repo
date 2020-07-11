@@ -207,6 +207,10 @@ public:
     //2020/06/21
     void max_subpath_RR();
     vector<pair<int, int>> sub_allchannels(Net &n, Tree_Node *sbtree_root, vector<SubNet> &allsubnets, map<int, int> &all_rip_nodes);
+
+    //2020/07/11
+    void subtree_sink_RR(); //挑出subtree root把subtree內的sink都用cost function重繞
+    void subtree_RR(); //挑出subtree root，把他連到別的點
 };
 
 #endif

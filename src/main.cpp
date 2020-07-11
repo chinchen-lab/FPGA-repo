@@ -52,7 +52,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < 1; i++)
     {
         cout << "iter " << i << " : ";
-        fgr.max_subpath_RR();
+        fgr.subtree_sink_RR();
         double rr_cost = fgr.compute_TDM_cost();
         cout << "reroute cost = " << rr_cost << endl;
         cout << "improve = " << fixed << setprecision(2) << (init_cost - rr_cost) / init_cost * 100 << "%" << endl;

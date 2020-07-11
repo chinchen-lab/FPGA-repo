@@ -6,4 +6,4 @@ initial cost = 402022057
 iter 0 : reroute cost = 398929246
 improve = 0.77%
 check all net have been routed correctly...OK
-runtime = 10.57 seconds
+runtime = 10.43 seconds

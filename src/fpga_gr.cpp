@@ -122,6 +122,46 @@ int max_weight(Tree_Node *root) //return max sink weight value of all subtree
     return max;
 }
 
+double diff_weight_es(Tree_Node *root) //return tree的edge weight平均 與 sink weight平均 的 差
+{
+    queue<Tree_Node *> fifo_queue;
+    fifo_queue.push(root);
+
+    double total_s, total_e, avg_s, avg_e, sink_num, edge_num;
+    total_e = total_s = sink_num = edge_num = 0.0;
+
+    while (fifo_queue.size() != 0)
+    {
+        Tree_Node *cur = fifo_queue.front();
+        fifo_queue.pop();
+
+        if (cur->sink_weight != 0)
+        {
+            sink_num++;
+            total_s += cur->sink_weight;
+        }
+
+        if (cur->fpga_id != root->fpga_id)
+        {
+            edge_num++;
+            total_e += cur->max_value;
+        }
+
+        for (auto &child : cur->children)
+        {
+            fifo_queue.push(child);
+        }
+    }
+
+    avg_e = total_e / edge_num;
+    avg_s = total_s / sink_num;
+
+    //cout << total_e << " " << total_s << endl;
+    //cout << edge_num << " " << sink_num << endl;
+
+    return (avg_e - avg_s);
+}
+
 pair<int, int> get_channel_name(int x, int y)
 {
     int s = min(x, y);
@@ -162,7 +202,7 @@ Tree_Node *search_node(Tree_Node *root, int key)
         }
     }
 
-    return NULL;
+    return nullptr;
 }
 
 void FPGA_Gr::getfile(char *sysfile, char *netfile)
@@ -2425,7 +2465,7 @@ void FPGA_Gr::max_subpath_RR()
 
     for (int i = 0; i < (int)net.size(); i++)
     {
-        if (i > 1.0 / 2.0 * net.size()) //挑出criticality大小前面1/3的net來RR
+        if (i > 1.0 / 2.0 * net.size()) //挑出criticality大小前面1/2的net來RR
             break;
 
         auto &n = net[i];
@@ -2958,6 +2998,346 @@ void FPGA_Gr::max_subpath_RR()
     //cout << "ok" << endl;
 }
 
+void FPGA_Gr::subtree_sink_RR()
+{
+    double old_cost = total_cost;
+
+    //決定要RR的Net order
+    for (auto &n : net)
+    {
+        double net_avg_skw = n.total_sink_weight / (double)n.sink.size();
+        //double edge_weight_penalty = n.total_edge_weight / (double)n.sink.size();
+        double edge_weight_penalty = (n.total_edge_weight / (double)n.total_tree_edge) - net_avg_skw;
+        //double weight_order = n.total_order / (double)n.sink.size(); //越先被route越先reroute
+
+        n.criticality = net_avg_skw * n.total_tdm + edge_weight_penalty;
+        //n.criticality *= weight_order;
+
+        //n.criticality = net_avg_skw * n.total_tdm;
+    }
+    sort(net.begin(), net.end(), comp_netcrit);
+
+    //start to RR
+    for (int i = 0; i < (int)net.size(); i++)
+    {
+        if (i > 1.0 / 2.0 * net.size()) //挑出criticality大小前面1/2的net來RR
+            break;
+
+        auto &n = net[i];
+
+        n.cost = comptue_tree_TDM_cost(n.rtree_root);
+        double new_cost = old_cost - n.cost;
+
+        //find max_diff subtree root node (level 1~level 2), level 0 => root
+        int rip_fpga_id;
+        double max_diff_value = INT_MIN;
+        vector<pair<int, int>> inf_channel_sub;
+        vector<pair<int, int>> inf_channel_add;
+
+        queue<Tree_Node *> fifo_queue;
+        fifo_queue.push(n.rtree_root);
+
+        while (fifo_queue.size() != 0)
+        {
+            Tree_Node *cur = fifo_queue.front();
+            fifo_queue.pop();
+
+            //check tree level是不是前3層(0~2)
+            if (cur->fpga_id != n.source) //check 是不是第0層
+            {
+                if (cur->parent->fpga_id != n.source) //check 是不是第1層
+                {
+                    if (cur->parent->parent->fpga_id != n.source) //check 是不是第2層
+                    {
+                        continue;
+                    }
+                    else //目前位於第2層
+                    {
+                        double diff_val = diff_weight_es(cur);
+                        //cout << "L2 : " << cur->fpga_id;
+                        //cout << ", diff_val = " << diff_val << endl;
+
+                        if (diff_val > max_diff_value)
+                        {
+                            max_diff_value = diff_val;
+                            rip_fpga_id = cur->fpga_id;
+                        }
+                    }
+                }
+                else //目前位於第1層
+                {
+                    double diff_val = diff_weight_es(cur);
+                    //cout << "L1 : " << cur->fpga_id;
+                    //cout << ", diff_val = " << diff_val << endl;
+
+                    if (diff_val > max_diff_value)
+                    {
+                        max_diff_value = diff_val;
+                        rip_fpga_id = cur->fpga_id;
+                    }
+                }
+            }
+            else //目前位於第0層
+            {
+                //cout << "L0 : " << cur->fpga_id << endl;
+            }
+
+            for (auto &child : cur->children)
+            {
+                fifo_queue.push(child);
+            }
+        }
+
+        //cout << "rip " << n.name << " node F" << rip_fpga_id << endl;
+
+        Tree_Node *node = search_node(n.rtree_root, rip_fpga_id);
+        
+        if (node == nullptr || node->fpga_id == n.source)
+            continue;
+        
+        Tree_Node *node_par = node->parent;
+
+        //cout << "before" << endl;
+        //show_tree(n.rtree_root);
+
+        //找出最後要拔掉的點 (這個點以下node都被拔掉，包含這個點)
+        Tree_Node *last_rip = node;
+        
+        while (node_par->children.size() - 1 == 0 && node_par->fpga_id != n.source)
+        {
+            last_rip = node_par;
+            node_par = node_par->parent;
+        }
+
+        //cout << "delete node : " << last_rip->fpga_id << endl;
+
+        //拔
+        for (auto it = node_par->children.begin(); it != node_par->children.end(); ++it)
+        {
+            if ((*it)->fpga_id == last_rip->fpga_id)
+            {
+                node_par->children.erase(it);
+                break;
+            }
+        }
+
+        pair<int, int> last_chan = make_pair(last_rip->parent->fpga_id, last_rip->fpga_id);
+        sub_channel_demand(last_chan.first, last_chan.second);
+        inf_channel_sub.push_back(last_chan);
+        last_rip->parent = NULL; //delete node parent
+
+        compute_edge_weight(n, n.rtree_root);
+
+
+        map<int, int> rip_node_lut;                                              //存放所有被拔掉的點
+        vector<SubNet> allsubnets;                                               //要reroute的sink
+        auto influence = sub_allchannels(n, last_rip, allsubnets, rip_node_lut); //把受影響channel的demand都-1，並記錄下來，以及找出要reroute的sink
+        inf_channel_sub.insert(inf_channel_sub.end(), influence.begin(), influence.end());
+
+        /*--------------------------------------backup old allpaths--------------------------------*/
+        vector<vector<int>> old_allpaths;
+        vector<pair<vector<int>, SubNet>> old_netallpaths;
+        for (const auto &apath : n.allpaths)
+        {
+            old_netallpaths.push_back(apath);
+            old_allpaths.push_back(apath.first);
+        }
+        /*-------------------------------------------------------------------------------------------*/
+        
+        //reroute all subnets
+        map<pair<int, int>, int> edge_lut;
+        map<int, int> sources = ret_all_node_and_edges(n.rtree_root, edge_lut); //rip up後的tree每個點都可當要reroute的sink的source
+        int hop_limit = LIMIT_HOP;                                              //最多嘗試與最小hop數差幾個hop的限制條件
+
+        for (auto &sb : allsubnets)
+        {
+            const auto &par_net_id = sb.parent_net;
+            int source = sb.source;
+            int sink = sb.sink;
+
+            //check 這個 sink 是不是被 route 過
+            if (sources.count(sink) > 0)
+            {
+                continue;
+            }
+
+            //start to routing
+            vector<vector<int>> cand_path;
+            vector<int> src_candidate;
+            int cur_node = source;
+            queue<pair<vector<int>, int>> path_queue; //(path, 剩餘hop)
+            int minimum_hop;
+
+            int min_hops = INT_MAX;
+            for (const auto &s : sources)
+            {
+                int min = INT_MAX;
+                for (const auto &cand : path_table_ver2[s.first][sink].cand)
+                {
+                    if (cand.hops < min)
+                    {
+                        min = cand.hops;
+                    }
+                }
+                const int &tmp = min;
+                if (tmp < min_hops && tmp != 0)
+                    min_hops = tmp;
+                //src_candidate.push_back(s.first); 
+            }
+
+            for (const auto &s : sources)
+            {
+                if (path_table_ver2[s.first][sink].cand[0].hops == min_hops)
+                {
+                    src_candidate.push_back(s.first);
+                }
+            }
+
+            minimum_hop = min_hops;
+
+            for (const auto &src : src_candidate)
+            {
+                const auto &pt_init = path_table_ver2[src][sink];
+                for (const auto &cand : pt_init.cand)
+                {
+                    int hops = cand.hops;
+
+                    if (hops > minimum_hop + hop_limit)
+                    {
+                        break;
+                    }
+
+                    for (const auto &par : cand.parent)
+                    {
+                        vector<int> path;
+                        path.push_back(sink);
+                        path.push_back(par);
+                        auto pq = make_pair(path, hops - 1);
+                        path_queue.push(pq);
+                    }
+                }
+
+                while (!path_queue.empty())
+                {
+                    auto cur_path = path_queue.front();
+                    path_queue.pop();
+
+                    if (cur_path.first.back() == src) //done !
+                    {
+                        cand_path.push_back(cur_path.first);
+                        continue;
+                    }
+
+                    auto pt = path_table_ver2[src][cur_path.first.back()];
+
+                    for (auto &cand : pt.cand)
+                    {
+                        if (cand.hops == 1 && cand.hops == cur_path.second)
+                        {
+                            auto temp_path = cur_path.first;
+                            temp_path.push_back(src);
+                            cand_path.push_back(temp_path);
+                        }
+                        else if (cand.hops == cur_path.second)
+                        {
+                            for (auto &par : cand.parent)
+                            {
+                                auto temp_path = cur_path.first;
+                                temp_path.push_back(par);
+                                auto pq = make_pair(temp_path, cur_path.second - 1);
+                                path_queue.push(pq);
+                            }
+                        }
+                    }
+                }
+            }
+
+            //try all candidate paths and route the best one
+            double best = INT_MAX;
+            int index, count = 0;
+
+            for (auto &path : cand_path)
+            {
+                int sink_num;
+
+                //檢查path是否提前連到tree上了導致dummy node
+                int check_idx = 1;
+                for (int i = 1; i < path.size(); i++)
+                {
+                    if (sources.count(path[i]) > 0)
+                    {
+                        check_idx = i; //第一個連到tree的點
+                        break;
+                    }
+                }
+                //pop多餘的點
+                if (check_idx < path.size() - 1)
+                {
+                    for (int i = 0; i < path.size() - 1 - check_idx; i++)
+                    {
+                        path.pop_back();
+                    }
+                }
+
+                double cost = compute_cost_for_gr2(net[par_net_id], path, sb, sink_num);
+
+                if (cost < best)
+                {
+                    best = cost;
+                    index = count;
+                }
+
+                count++;
+            }
+
+            n.allpaths.push_back(make_pair(cand_path[index], sb));
+
+            for (size_t i = 0; i < cand_path[index].size() - 1; i++)
+            {
+                if (edge_lut.count(make_pair(cand_path[index][i + 1], cand_path[index][i])) == 0)
+                {
+                    edge_lut[make_pair(cand_path[index][i + 1], cand_path[index][i])] = 1;
+                    add_channel_demand(cand_path[index][i + 1], cand_path[index][i]);
+                    inf_channel_add.push_back(make_pair(cand_path[index][i + 1], cand_path[index][i]));
+                }
+                sources[cand_path[index][i]] = 1;
+            }
+
+            routing_subtree(n, cand_path[index]); //add path to routing tree
+        }
+
+        compute_edge_weight(n, n.rtree_root); //更新edge weight資訊
+        double new_net_cost = comptue_tree_TDM_cost(n.rtree_root);
+        new_cost += new_net_cost;
+
+        if (new_cost < old_cost)
+        {
+            old_cost = new_cost;
+            n.cost = new_net_cost;
+        }
+        else //還原
+        {
+            n.allpaths = old_netallpaths;
+            delete_tree(n.rtree_root);
+            routing_tree(n, old_allpaths);
+
+            /*----------------------------------------還原受影響channel----------------------------------------*/
+            for (const auto &ch : inf_channel_add) //將加過demand的channel減回去
+            {
+                sub_channel_demand(ch.first, ch.second);
+            }
+
+            for (const auto &ch : inf_channel_sub) //將減過demand的channel加回去
+            {
+                add_channel_demand(ch.first, ch.second);
+            }
+            /*-------------------------------------------------------------------------------------------------*/
+
+            compute_edge_weight(n, n.rtree_root);
+        }
+    }
+}
+
 void FPGA_Gr::check_result()
 {
     //check all nets have been routed correctly
@@ -2968,7 +3348,7 @@ void FPGA_Gr::check_result()
         {
             cout << "Error" << endl;
             cout << n.name << "'s source = " << n.source << "<----->" << n.rtree_root->fpga_id << " = tree root" << endl;
-            exit(1);
+            //exit(1);
         }
 
         list<int> net_terminal;
@@ -3003,7 +3383,7 @@ void FPGA_Gr::check_result()
                 {
                     cout << "Error" << endl;
                     cout << n.name << " : " << chi->fpga_id << " is not the neighbor of " << cur->fpga_id << " !\n";
-                    exit(1);
+                    //exit(1);
                 }
 
                 //check edge weight是否正確
@@ -3011,14 +3391,14 @@ void FPGA_Gr::check_result()
                 {
                     cout << "Error" << endl;
                     cout << n.name << " : parent edge_weight = " << cur->edge_weight << " must >= child sink weight = " << chi->sink_weight << endl;
-                    exit(1);
+                    //exit(1);
                 }
 
                 if (cur->edge_weight != cur->max_value)
                 {
                     cout << "Error" << endl;
                     cout << n.name << " : " << cur->fpga_id << "'s edge weight error or max value error" << endl;
-                    exit(1);
+                    //exit(1);
                 }
 
                 fifo_queue.push(chi);
@@ -3034,7 +3414,7 @@ void FPGA_Gr::check_result()
                 cout << id << " ";
             }
             cout << "did not be routed" << endl;
-            exit(1);
+            //exit(1);
         }
     }
     cout << "OK" << endl;
