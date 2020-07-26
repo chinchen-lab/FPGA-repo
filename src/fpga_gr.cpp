@@ -30,6 +30,11 @@ bool comp_hops(const Table_content &lhs, const Table_content &rhs)
     return lhs.hops < rhs.hops;
 }
 
+bool comp_by_second(const pair<Net *, double> &lhs, const pair<Net *, double> &rhs)
+{
+    return lhs.second > rhs.second;
+}
+
 void show_tree(Tree_Node *root)
 {
     if (root == NULL)
@@ -1617,7 +1622,7 @@ void FPGA_Gr::routing_tree(Net &n, const vector<vector<int>> &subpath)
 
 void FPGA_Gr::routing_subtree(Net &n, const vector<int> &subpath)
 {
-    if (n.rtree_root == NULL)
+    if (n.rtree_root == NULL || n.rtree_root == nullptr)
     {
         Tree_Node *root = new Tree_Node();
         root->parent = NULL;
@@ -1811,7 +1816,7 @@ double FPGA_Gr::compute_TDM_cost()
             auto ch_name = get_channel_name(n.rtree_root->fpga_id, child->fpga_id);
             auto ch = map_to_channel[ch_name];
             int idx = (n.rtree_root->fpga_id > child->fpga_id) ? 1 : 0;
-            ch->net_sigweight[idx].push_back(&n);
+            ch->passed_nets[idx].push_back(&n);
         }
 
         while (fifo_queue.size() != 0)
@@ -1825,11 +1830,36 @@ double FPGA_Gr::compute_TDM_cost()
             //cout << "par cur = " << par_id << " " << cur_id << endl;
             double tdm_ratio = channel_TDM(par_id, cur_id);
 
-            maxtdm = (tdm_ratio > maxtdm) ? tdm_ratio : maxtdm;
+            if (tdm_ratio > top1_tdm)
+            {
+                top1_tdm = tdm_ratio;
+                top1_tdm_channel = make_pair(par_id, cur_id);
+            }
+            else if (tdm_ratio > top2_tdm)
+            {
+                top2_tdm = tdm_ratio;
+                top2_tdm_channel = make_pair(par_id, cur_id);
+            }
+            else if (tdm_ratio > top3_tdm)
+            {
+                top3_tdm = tdm_ratio;
+                top3_tdm_channel = make_pair(par_id, cur_id);
+            }
+            else if (tdm_ratio > top4_tdm)
+            {
+                top4_tdm = tdm_ratio;
+                top4_tdm_channel = make_pair(par_id, cur_id);
+            }
+            else if (tdm_ratio > top5_tdm)
+            {
+                top5_tdm = tdm_ratio;
+                top5_tdm_channel = make_pair(par_id, cur_id);
+            }
             mintdm = (tdm_ratio < mintdm) ? tdm_ratio : mintdm;
 
             n.max_tdm = (tdm_ratio > n.max_tdm) ? tdm_ratio : n.max_tdm;
             n.min_tdm = (tdm_ratio < n.min_tdm) ? tdm_ratio : n.min_tdm;
+
             n.total_tdm += tdm_ratio;
             n.cost += (tdm_ratio * (double)cur->edge_weight);
             n.total_edge_weight += (double)cur->edge_weight;
@@ -1850,7 +1880,7 @@ double FPGA_Gr::compute_TDM_cost()
                 auto ch_name = get_channel_name(cur->fpga_id, child->fpga_id);
                 auto ch = map_to_channel[ch_name];
                 int idx = (cur->fpga_id > child->fpga_id) ? 1 : 0;
-                ch->net_sigweight[idx].push_back(&n);
+                ch->passed_nets[idx].push_back(&n);
             }
         }
 
@@ -1862,7 +1892,15 @@ double FPGA_Gr::compute_TDM_cost()
         //cout << n.name << " => done !" << endl;
     }
 
-    avg_tdm_ratio = (int)ceil(total_tdm_ratio / total_tree_edge);
+    /*-----------
+    total_tdm_ratio = 0.0;
+    for (const auto &chd:channel_demand)
+    {
+        total_tdm_ratio += channel_TDM(chd.first.first, chd.first.second);
+    }
+    avg_tdm_ratio = total_tdm_ratio / channel_demand.size();
+    ------------*/
+
     total_cost = cost;
     return cost;
 }
@@ -2443,7 +2481,7 @@ map<int, int> ret_all_node_and_edges(Tree_Node *root, map<pair<int, int>, int> &
     return allnodes;
 }
 
-void FPGA_Gr::max_subpath_RR()
+void FPGA_Gr::max_subpath_RR() //RR
 {
     double old_cost = total_cost;
 
@@ -2998,7 +3036,7 @@ void FPGA_Gr::max_subpath_RR()
     //cout << "ok" << endl;
 }
 
-void FPGA_Gr::subtree_sink_RR()
+void FPGA_Gr::subtree_sink_RR() //SRT RR
 {
     double old_cost = total_cost;
 
@@ -3091,10 +3129,10 @@ void FPGA_Gr::subtree_sink_RR()
         //cout << "rip " << n.name << " node F" << rip_fpga_id << endl;
 
         Tree_Node *node = search_node(n.rtree_root, rip_fpga_id);
-        
+
         if (node == nullptr || node->fpga_id == n.source)
             continue;
-        
+
         Tree_Node *node_par = node->parent;
 
         //cout << "before" << endl;
@@ -3102,7 +3140,7 @@ void FPGA_Gr::subtree_sink_RR()
 
         //找出最後要拔掉的點 (這個點以下node都被拔掉，包含這個點)
         Tree_Node *last_rip = node;
-        
+
         while (node_par->children.size() - 1 == 0 && node_par->fpga_id != n.source)
         {
             last_rip = node_par;
@@ -3128,7 +3166,6 @@ void FPGA_Gr::subtree_sink_RR()
 
         compute_edge_weight(n, n.rtree_root);
 
-
         map<int, int> rip_node_lut;                                              //存放所有被拔掉的點
         vector<SubNet> allsubnets;                                               //要reroute的sink
         auto influence = sub_allchannels(n, last_rip, allsubnets, rip_node_lut); //把受影響channel的demand都-1，並記錄下來，以及找出要reroute的sink
@@ -3143,7 +3180,7 @@ void FPGA_Gr::subtree_sink_RR()
             old_allpaths.push_back(apath.first);
         }
         /*-------------------------------------------------------------------------------------------*/
-        
+
         //reroute all subnets
         map<pair<int, int>, int> edge_lut;
         map<int, int> sources = ret_all_node_and_edges(n.rtree_root, edge_lut); //rip up後的tree每個點都可當要reroute的sink的source
@@ -3182,7 +3219,7 @@ void FPGA_Gr::subtree_sink_RR()
                 const int &tmp = min;
                 if (tmp < min_hops && tmp != 0)
                     min_hops = tmp;
-                //src_candidate.push_back(s.first); 
+                //src_candidate.push_back(s.first);
             }
 
             for (const auto &s : sources)
@@ -3338,6 +3375,11 @@ void FPGA_Gr::subtree_sink_RR()
     }
 }
 
+void FPGA_Gr::subtree_RR() //SBT RR
+{
+    //找sink點拔 （）
+}
+
 void FPGA_Gr::check_result()
 {
     //check all nets have been routed correctly
@@ -3379,6 +3421,7 @@ void FPGA_Gr::check_result()
                         break;
                     }
                 }
+
                 if (!find)
                 {
                     cout << "Error" << endl;
@@ -3445,7 +3488,7 @@ void FPGA_Gr::initial_route_result()
 
         if (cur_channel_tdm > 1)
         {
-            for (const auto &node : ch->net_sigweight[direct])
+            for (const auto &node : ch->passed_nets[direct])
             {
                 double norm_cost = (((node->signal_weight - minsgw) / (maxsgw - minsgw)) * times + 1);
                 his_cost += norm_cost;
@@ -3490,6 +3533,476 @@ void FPGA_Gr::initial_route_result()
     }
 
     total_demand = 0;
-    maxtdm = 0;
+    top1_tdm = 0;
     mintdm = INT_MAX;
+}
+
+void FPGA_Gr::show_congestion_map()
+{
+    for (const auto &ch : map_to_channel)
+    {
+        if (ch.second->capacity == 0)
+            continue;
+
+        cout << "Channel Name : (" << ch.first.first << ", " << ch.first.second << ")\n";
+        cout << "TDM_0 : " << channel_TDM(ch.first.first, ch.first.second) << endl;
+        cout << "TDM_1 : " << channel_TDM(ch.first.second, ch.first.first) << endl;
+
+        /*
+        cout << "Nets_0: ";
+        for (const auto &n : ch.second->passed_nets[0])
+        {
+            cout << n->name << ", ";
+        }
+        cout << endl;
+        cout << "Nets_1: ";
+        for (const auto &n : ch.second->passed_nets[1])
+        {
+            cout << n->name << ", ";
+        }
+        cout << endl;
+        */
+
+        cout << endl;
+    }
+}
+
+
+
+void FPGA_Gr::congestion_RR() //CRR
+{
+    //get top1 tdm channel and direction
+    int dir1 = (top1_tdm_channel.first > top1_tdm_channel.second) ? 1 : 0;
+    auto ch_name1 = get_channel_name(top1_tdm_channel.first, top1_tdm_channel.second);
+    auto ch1 = map_to_channel[ch_name1];
+    before_top1_chTDM_CCR = top1_tdm;
+
+    //get top2 tdm channel and direction
+    int dir2 = (top2_tdm_channel.first > top2_tdm_channel.second) ? 1 : 0;
+    auto ch_name2 = get_channel_name(top2_tdm_channel.first, top2_tdm_channel.second);
+    auto ch2 = map_to_channel[ch_name2];
+    before_top2_chTDM_CCR = top2_tdm;
+
+    //get top3 tdm channel and direction
+    int dir3 = (top3_tdm_channel.first > top3_tdm_channel.second) ? 1 : 0;
+    auto ch_name3 = get_channel_name(top3_tdm_channel.first, top3_tdm_channel.second);
+    auto ch3 = map_to_channel[ch_name3];
+    before_top3_chTDM_CCR = top3_tdm;
+
+    //get top4 tdm channel and direction
+    int dir4 = (top4_tdm_channel.first > top4_tdm_channel.second) ? 1 : 0;
+    auto ch_name4 = get_channel_name(top4_tdm_channel.first, top4_tdm_channel.second);
+    auto ch4 = map_to_channel[ch_name4];
+    before_top4_chTDM_CCR = top4_tdm;
+
+    //get top5 tdm channel and direction
+    int dir5 = (top5_tdm_channel.first > top5_tdm_channel.second) ? 1 : 0;
+    auto ch_name5 = get_channel_name(top5_tdm_channel.first, top5_tdm_channel.second);
+    auto ch5 = map_to_channel[ch_name5];
+    before_top5_chTDM_CCR = top5_tdm;
+
+    /**************************************************************************************************/
+
+    //rip-up nets and compute criticality
+    vector<pair<Net *, double>> ripped_net; //net, crit
+    auto rip_net_set = ch1->passed_nets[dir1];
+    rip_net_set.insert(rip_net_set.end(), ch2->passed_nets[dir2].begin(), ch2->passed_nets[dir2].end());
+    rip_net_set.insert(rip_net_set.end(), ch3->passed_nets[dir2].begin(), ch3->passed_nets[dir2].end());
+    rip_net_set.insert(rip_net_set.end(), ch4->passed_nets[dir2].begin(), ch4->passed_nets[dir2].end());
+    rip_net_set.insert(rip_net_set.end(), ch5->passed_nets[dir2].begin(), ch5->passed_nets[dir2].end());
+
+    rip_net_set.sort();
+    rip_net_set.unique();
+
+    for (auto &n : rip_net_set)
+    {
+        rip_up_net(*n);
+
+        double net_avg_skw = n->total_sink_weight / (double)n->sink.size();
+        double edge_weight_penalty = (n->total_edge_weight / (double)n->total_tree_edge) - net_avg_skw;
+        double criticality = net_avg_skw * n->total_tdm + edge_weight_penalty;
+
+        ripped_net.push_back(make_pair(n, criticality));
+    }
+
+    sort(ripped_net.begin(), ripped_net.end(), comp_by_second); //net order decision (sorted by criticality)
+
+    //reroute net
+    for (const auto &rip_net_crit : ripped_net)
+    {
+        auto n_ptr = rip_net_crit.first; //point to ripped_net
+        reroute_net(n_ptr);
+        compute_edge_weight(*n_ptr, n_ptr->rtree_root);
+        //show_tree(n_ptr->rtree_root);
+    }
+
+    after_top1_chTDM_CCR = channel_TDM(top1_tdm_channel.first, top1_tdm_channel.second);
+    after_top2_chTDM_CCR = channel_TDM(top2_tdm_channel.first, top2_tdm_channel.second);
+    after_top3_chTDM_CCR = channel_TDM(top3_tdm_channel.first, top3_tdm_channel.second);
+    after_top4_chTDM_CCR = channel_TDM(top4_tdm_channel.first, top4_tdm_channel.second);
+    after_top5_chTDM_CCR = channel_TDM(top5_tdm_channel.first, top5_tdm_channel.second);
+}
+
+void FPGA_Gr::update_history_cost()
+{
+    for (auto &chd : channel_demand)
+    {
+        int direct = (chd.first.first < chd.first.second) ? 0 : 1; //min-->max : 0, max-->min : 1
+        int cap = channel_capacity[chd.first];
+        auto ch_name = get_channel_name(chd.first.first, chd.first.second);
+        auto ch = map_to_channel[ch_name];
+
+        int cur_channel_tdm = (int)ceil((double)chd.second / (double)cap);
+        double his_cost = 0.0;
+
+        if (cur_channel_tdm > 1)
+        {
+            if (after_top1_chTDM_CCR >= before_top1_chTDM_CCR && before_top1_chTDM_CCR != 0 && after_top1_chTDM_CCR != 0)
+            {
+                ch->history_penalty[direct] += 0.2;
+            }
+            else if (after_top2_chTDM_CCR >= before_top2_chTDM_CCR && before_top2_chTDM_CCR != 0 && after_top2_chTDM_CCR != 0)
+            {
+                ch->history_penalty[direct] += 0.2;
+            }
+            else if (after_top3_chTDM_CCR >= before_top3_chTDM_CCR && before_top3_chTDM_CCR != 0 && after_top3_chTDM_CCR != 0)
+            {
+                ch->history_penalty[direct] += 0.2;
+            }
+            else if (after_top4_chTDM_CCR >= before_top4_chTDM_CCR && before_top4_chTDM_CCR != 0 && after_top4_chTDM_CCR != 0)
+            {
+                ch->history_penalty[direct] += 0.2;
+            }
+            else if (after_top5_chTDM_CCR >= before_top5_chTDM_CCR && before_top5_chTDM_CCR != 0 && after_top5_chTDM_CCR != 0)
+            {
+                ch->history_penalty[direct] += 0.2;
+            }
+
+            ch->history_cost[direct] = cur_channel_tdm * ch->history_penalty[direct];
+        }
+        else
+        {
+            ch->history_cost[direct] = 0;
+        }
+    }
+}
+
+void FPGA_Gr::reroute_net(Net *n)
+{
+    //subnetbased = true;
+    int hop_limit = LIMIT_HOP; //最多嘗試與最小hop數差幾個hop的限制條件
+    vector<pair<SubNet, int>> subnet_order;
+    vector<vector<int>> allpaths; //紀錄每個net的所有subpath
+    map<pair<int, int>, int> edge_lut;
+    map<int, int> sources;
+
+    //算出subnet weight決定routing order
+    for (auto &sb : n->sbnet)
+    {
+        pair<SubNet, int> temp;
+        const int &src = sb.source;
+        const int &sink = sb.sink;
+        const int &hops = path_table_ver2[src][sink].cand[0].hops;
+        int weight = sb.weight;
+        temp = make_pair(sb, weight);
+        subnet_order.push_back(temp);
+    }
+    sort(subnet_order.begin(), subnet_order.end(), comp_sbnetcost);
+
+    double total_time = 0.0;
+
+    //start to route subnet
+    int sub_order = 0;
+    for (auto &sb : subnet_order)
+    {
+        auto t2 = clock();
+        int source = sb.first.source;
+        int sink = sb.first.sink;
+
+        //check 這個 sink 是不是被 route 過
+        if (sources.count(sink) > 0)
+        {
+            continue;
+        }
+
+        //start to routing
+        vector<vector<int>> cand_path;
+        vector<int> src_candidate;
+        int cur_node = source;
+        queue<pair<vector<int>, int>> path_queue; //(path, 剩餘hop)
+        int minimum_hop;
+
+        if (sources.size() == 0)
+        {
+            sources[source] = 1;
+            src_candidate.push_back(source);
+            minimum_hop = path_table_ver2[source][sink].cand[0].hops;
+        }
+        else
+        {
+            int min_hops = INT_MAX;
+            for (const auto &s : sources)
+            {
+                int min = INT_MAX;
+                for (const auto &cand : path_table_ver2[s.first][sink].cand)
+                {
+                    if (cand.hops < min)
+                    {
+                        min = cand.hops;
+                    }
+                }
+                const int &tmp = min;
+                if (tmp < min_hops && tmp != 0)
+                    min_hops = tmp;
+            }
+
+            for (const auto &s : sources)
+            {
+                int min = path_table_ver2[s.first][sink].cand[0].hops;
+                if (min == min_hops)
+                {
+                    src_candidate.push_back(s.first);
+                }
+            }
+
+            minimum_hop = min_hops;
+        }
+
+        for (const auto &src : src_candidate)
+        {
+            const auto &pt_init = path_table_ver2[src][sink];
+            for (const auto &cand : pt_init.cand)
+            {
+                int hops = cand.hops;
+
+                if (hops > minimum_hop + hop_limit)
+                {
+                    continue;
+                }
+
+                for (const auto &par : cand.parent)
+                {
+                    vector<int> path;
+                    path.push_back(sink);
+                    path.push_back(par);
+                    auto pq = make_pair(path, hops - 1);
+                    path_queue.push(pq);
+                }
+            }
+
+            while (!path_queue.empty())
+            {
+                auto cur_path = path_queue.front();
+                path_queue.pop();
+
+                if (cur_path.first.back() == src) //done !
+                {
+                    cand_path.push_back(cur_path.first);
+                    continue;
+                }
+
+                auto pt = path_table_ver2[src][cur_path.first.back()];
+
+                for (auto &cand : pt.cand)
+                {
+                    if (cand.hops == 1 && cand.hops == cur_path.second)
+                    {
+                        auto temp_path = cur_path.first;
+                        temp_path.push_back(src);
+                        cand_path.push_back(temp_path);
+                    }
+                    else if (cand.hops == cur_path.second)
+                    {
+                        for (auto &par : cand.parent)
+                        {
+                            auto temp_path = cur_path.first;
+                            temp_path.push_back(par);
+                            auto pq = make_pair(temp_path, cur_path.second - 1);
+                            path_queue.push(pq);
+                        }
+                    }
+                }
+            }
+        }
+
+        //try all candidate paths and route the best one
+        double best = INT_MAX;
+        int index, count = 0;
+
+        for (auto &path : cand_path)
+        {
+            int sink_num;
+
+            //檢查path是否提前連到tree上了導致dummy node
+            int check_idx = 1;
+            for (int i = 1; i < path.size(); i++)
+            {
+                if (sources.count(path[i]) > 0)
+                {
+                    check_idx = i; //第一個連到tree的點
+                    break;
+                }
+            }
+            //pop多餘的點
+            if (check_idx < path.size() - 1)
+            {
+                for (int i = 0; i < path.size() - 1 - check_idx; i++)
+                {
+                    path.pop_back();
+                }
+            }
+
+            double cost = compute_cost_for_CCR(*n, path, sb.first, sink_num);
+
+            if (cost < best)
+            {
+                best = cost;
+                index = count;
+            }
+
+            count++;
+        }
+
+        //getchar();
+
+        allpaths.push_back(cand_path[index]);
+
+        for (size_t i = 0; i < cand_path[index].size() - 1; i++)
+        {
+            if (edge_lut.count(make_pair(cand_path[index][i + 1], cand_path[index][i])) == 0)
+            {
+                edge_lut[make_pair(cand_path[index][i + 1], cand_path[index][i])] = 1;
+                add_channel_demand(cand_path[index][i + 1], cand_path[index][i]);
+
+                //不確定對不對
+                auto ch = map_to_channel[get_channel_name(cand_path[index][i + 1], cand_path[index][i])];
+                int dir = (cand_path[index][i + 1] > cand_path[index][i]) ? 1 : 0;
+                ch->passed_nets[dir].push_back(n);
+            }
+            sources[cand_path[index][i]] = 1;
+        }
+
+        total_time += ((double)(clock() - t2) / (double)CLOCKS_PER_SEC);
+        routing_subtree(*n, cand_path[index]); //add path to routing tree
+    }
+}
+
+void FPGA_Gr::rip_up_net(Net &n)
+{
+    queue<Tree_Node *> fifo_queue;
+    fifo_queue.push(n.rtree_root);
+
+    if (n.rtree_root == NULL)
+        return;
+
+    while (fifo_queue.size() != 0)
+    {
+        Tree_Node *cur = fifo_queue.front();
+        fifo_queue.pop();
+
+        if (cur->children.size() == 0)
+            continue;
+
+        for (const auto &child : cur->children)
+        {
+            sub_channel_demand(cur->fpga_id, child->fpga_id);
+
+            //不確定對不對
+            int dir = (cur->fpga_id > child->fpga_id) ? 1 : 0;
+            auto ch = map_to_channel[get_channel_name(cur->fpga_id, child->fpga_id)];
+            Net *rm_net;
+
+            for (auto &ch_passed : ch->passed_nets[dir])
+            {
+                if (ch_passed->name == n.name)
+                {
+                    rm_net = ch_passed;
+                    break;
+                }
+            }
+            ch->passed_nets[dir].remove(rm_net);
+
+            fifo_queue.push(child);
+        }
+        delete cur;
+    }
+
+    n.total_tree_edge = 0;
+    n.rtree_root = NULL;
+}
+
+double FPGA_Gr::compute_cost_for_CCR(Net &n, const vector<int> &path, const SubNet &sbnet, int &sink_num)
+{
+    double cost = 0.0, cost_path = 0.0, appr_tdm = 0.0;
+    double weight = sbnet.weight;
+    double hop_num = path.size() - 1;
+    double total_used = 0.0, net_cost = 0.0;
+    double total_his_cost = 0.0;
+    double total_weight = 0.0;
+    double cost_par = 0.0;
+    sink_num = 1;
+
+    map<int, int> sink_lut;
+    for (const auto &sk : n.sink)
+    {
+        sink_lut[sk.id] = sk.weight;
+    }
+
+    for (size_t i = 0; i < path.size() - 1; i++)
+    {
+        int cap = channel_capacity[make_pair(path[i + 1], path[i])];
+
+        cap = (cap == 0) ? 1 : cap;
+
+        //double sig_weight = n.edge_crit[make_pair(path[i + 1], path[i])];
+        const int &direct = (path[i + 1] < path[i]) ? 0 : 1; //min-->max : 0, max-->min : 1
+        double ch_used = channel_used(path[i + 1], path[i]);
+
+        double before_tdm = (double)(ch_used) / (double)cap;
+        double appr_tdm = (double)(ch_used + 1) / (double)cap; //src to sink appr. tdm
+
+        auto ch_name = get_channel_name(path[i], path[i + 1]);
+        auto ch = map_to_channel[ch_name];
+        double his_cost = ch->history_cost[direct];
+
+        //check weight
+
+        if (i > 0)
+        {
+            //check if current node is a sink ?
+
+            if (sink_lut.count(path[i]) > 0)
+            {
+                sink_num++;
+                if (sink_lut[path[i]] > weight)
+                {
+                    weight = sink_lut[path[i]];
+                }
+            }
+        }
+
+        total_weight += weight;
+        int wirelength = i + 1;
+
+        if (ceil(appr_tdm) <= ceil(before_tdm))
+        {
+            ch_used = 0;
+        }
+
+        appr_tdm = (appr_tdm < 1) ? 1 : appr_tdm;
+        double base_cost = weight * appr_tdm;
+        double congestion_cost = cost_par + (base_cost + 100 * his_cost);
+        double cost_cur = congestion_cost;
+
+        cost_par = cost_cur;
+        cost_path += cost_cur;
+    }
+
+    if (sink_lut.count(path.back()) > 0)
+        sink_num++;
+
+    cost = cost_path;
+    cost /= (double)sink_num;
+
+    return cost;
 }

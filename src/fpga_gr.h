@@ -108,13 +108,17 @@ public:
     pair<int, int> name;
     list<pair<Net *, double>> net_ch_weight; //net list and edge weight
     double history_used[2];                  // min-->max : index=0
+    double history_cost[2];                  //for CCR
+    double history_penalty[2];               //for CCR
     int capacity;
-    vector<Net *> net_sigweight[2];
+    list<Net *> passed_nets[2]; //紀錄經過的Net
 
     Channel()
     {
         capacity = 0;
         history_used[0] = history_used[1] = 0.0;
+        history_cost[0] = history_cost[1] = 0.0;
+        history_penalty[0] = history_penalty[1] = 1.0;
     }
 
     ~Channel();
@@ -145,10 +149,18 @@ public:
     int sink_num;
     int total_demand;
     double total_cost, avg_sk_weight;
-    int avg_tdm_ratio;
-    int maxtdm, mintdm;
+    double avg_tdm_ratio;
+    int top1_tdm, mintdm;
+    int top2_tdm, top3_tdm, top4_tdm, top5_tdm;
     double maxsgw, minsgw; // max and min signal weight
     bool subnetbased;
+    
+    //befor and after tdm (top5)
+    int before_top1_chTDM_CCR, after_top1_chTDM_CCR;
+    int before_top2_chTDM_CCR, after_top2_chTDM_CCR;
+    int before_top3_chTDM_CCR, after_top3_chTDM_CCR;
+    int before_top4_chTDM_CCR, after_top4_chTDM_CCR;
+    int before_top5_chTDM_CCR, after_top5_chTDM_CCR;
 
     vector<FPGA> fpga;
     vector<Net> net;
@@ -158,11 +170,24 @@ public:
     map<pair<int, int>, Channel *> map_to_channel;
     map<pair<int, int>, int> channel_capacity; //2 fpga --> channel capacity
 
+    //2020/07/19
+    pair<int, int> top1_tdm_channel;
+    pair<int, int> top2_tdm_channel;
+    pair<int, int> top3_tdm_channel;
+    pair<int, int> top4_tdm_channel;
+    pair<int, int> top5_tdm_channel;
+
     FPGA_Gr()
     {
         round = 1;
         sink_num = total_cost = total_demand = 0;
-        maxsgw = maxtdm = 0;
+        maxsgw = top1_tdm = top2_tdm = top3_tdm = top4_tdm = top5_tdm = 0;
+        before_top1_chTDM_CCR = after_top1_chTDM_CCR = 0;
+        before_top2_chTDM_CCR = after_top2_chTDM_CCR = 0;
+        before_top3_chTDM_CCR = after_top3_chTDM_CCR = 0;
+        before_top4_chTDM_CCR = after_top4_chTDM_CCR = 0;
+        before_top5_chTDM_CCR = after_top5_chTDM_CCR = 0;
+
         minsgw = mintdm = INT_MAX;
         subnetbased = false;
     }
@@ -210,7 +235,15 @@ public:
 
     //2020/07/11
     void subtree_sink_RR(); //挑出subtree root把subtree內的sink都用cost function重繞
-    void subtree_RR(); //挑出subtree root，把他連到別的點
+    void subtree_RR();      //挑出subtree root，把他連到別的點
+
+    //2020/07/19
+    void show_congestion_map(); //印出Channel各方向的使用量、TDM分配以及有哪些訊號通過
+    void congestion_RR();
+    void rip_up_net(Net &n);
+    void reroute_net(Net *n);
+    double compute_cost_for_CCR(Net &, const vector<int> &, const SubNet &, int &sink_num);
+    void update_history_cost();
 };
 
 #endif
