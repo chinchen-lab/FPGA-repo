@@ -66,11 +66,12 @@ int main(int argc, char **argv)
           //fgr.subtree_sink_RR();
           //fgr.max_subpath_RR();
           double rr_cost = fgr.compute_TDM_cost();
+          fgr.set_after_conj_cost();
           rrt = (double)(clock() - rrtime) / (double)CLOCKS_PER_SEC;
 
-          cout << "reroute cost = " << fixed << setprecision(0) << rr_cost
-               << ", time = " << fixed << setprecision(2) << ", avg TDM = " << fgr.avg_tdm_ratio << ", "
-               << rrt << " seconds" << "---------------improve = " << fixed << setprecision(2)
+          cout << "\treroute cost = " << fixed << setprecision(0) << rr_cost
+               << "\n\ttime = " << fixed << setprecision(2) << rrt << " seconds" << "\n\tavg TDM = " << fgr.avg_tdm_ratio
+               << "\n\timprove = " << fixed << setprecision(2)
                << (init_cost - rr_cost) / init_cost * 100 << "%" << endl;          
      }
 

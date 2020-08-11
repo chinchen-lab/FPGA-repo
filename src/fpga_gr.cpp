@@ -35,6 +35,11 @@ bool comp_by_second(const pair<Net *, double> &lhs, const pair<Net *, double> &r
     return lhs.second > rhs.second;
 }
 
+bool comp_conj_vec_map(const pair<pair<int, int>, int> &lhs, const pair<pair<int, int>, int> &rhs)
+{
+    return lhs.second > rhs.second;
+}
+
 void show_tree(Tree_Node *root)
 {
     if (root == NULL)
@@ -1586,7 +1591,7 @@ double FPGA_Gr::compute_cost_for_gr2(Net &n, const vector<int> &path, const SubN
         sink_num++;
 
     cost = cost_path; //history + current path cost
-    cost /= (double)sink_num;
+    //cost /= (double)sink_num;
 
     return cost;
 }
@@ -1830,41 +1835,42 @@ double FPGA_Gr::compute_TDM_cost()
             //cout << "par cur = " << par_id << " " << cur_id << endl;
             double tdm_ratio = channel_TDM(par_id, cur_id);
 
-            if (tdm_ratio > top1_tdm)
-            {
-                top1_tdm = tdm_ratio;
-                top1_tdm_channel = make_pair(par_id, cur_id);
-            }
-            else if (tdm_ratio > top2_tdm)
-            {
-                top2_tdm = tdm_ratio;
-                top2_tdm_channel = make_pair(par_id, cur_id);
-            }
-            else if (tdm_ratio > top3_tdm)
-            {
-                top3_tdm = tdm_ratio;
-                top3_tdm_channel = make_pair(par_id, cur_id);
-            }
-            else if (tdm_ratio > top4_tdm)
-            {
-                top4_tdm = tdm_ratio;
-                top4_tdm_channel = make_pair(par_id, cur_id);
-            }
-            else if (tdm_ratio > top5_tdm)
-            {
-                top5_tdm = tdm_ratio;
-                top5_tdm_channel = make_pair(par_id, cur_id);
-            }
-            mintdm = (tdm_ratio < mintdm) ? tdm_ratio : mintdm;
-
             n.max_tdm = (tdm_ratio > n.max_tdm) ? tdm_ratio : n.max_tdm;
             n.min_tdm = (tdm_ratio < n.min_tdm) ? tdm_ratio : n.min_tdm;
 
             n.total_tdm += tdm_ratio;
             n.cost += (tdm_ratio * (double)cur->edge_weight);
             n.total_edge_weight += (double)cur->edge_weight;
-
             total_tdm_ratio += tdm_ratio;
+
+            double conj_map_cost = (congestion_map[make_pair(par_id, cur_id)] += tdm_ratio * (double)cur->edge_weight);
+
+            if (conj_map_cost > top1_tdm)
+            {
+                top1_tdm = conj_map_cost;
+                top1_tdm_channel = make_pair(par_id, cur_id);
+            }
+            else if (conj_map_cost > top2_tdm)
+            {
+                top2_tdm = conj_map_cost;
+                top2_tdm_channel = make_pair(par_id, cur_id);
+            }
+            else if (conj_map_cost > top3_tdm)
+            {
+                top3_tdm = conj_map_cost;
+                top3_tdm_channel = make_pair(par_id, cur_id);
+            }
+            else if (conj_map_cost > top4_tdm)
+            {
+                top4_tdm = conj_map_cost;
+                top4_tdm_channel = make_pair(par_id, cur_id);
+            }
+            else if (conj_map_cost > top5_tdm)
+            {
+                top5_tdm = conj_map_cost;
+                top5_tdm_channel = make_pair(par_id, cur_id);
+            }
+            mintdm = (tdm_ratio < mintdm) ? tdm_ratio : mintdm;
 
             //紀錄net中channel資訊
             auto ch_name = get_channel_name(par_id, cur_id);
@@ -3571,7 +3577,24 @@ void FPGA_Gr::show_congestion_map()
 
 void FPGA_Gr::congestion_RR() //CRR
 {
-    //get top1 tdm channel and direction
+    //sort congestion map
+    for (const auto &cm : congestion_map)
+    {
+        cong_map_vec.push_back(make_pair(cm.first, cm.second));
+    }
+    sort(cong_map_vec.begin(), cong_map_vec.end(), comp_conj_vec_map);
+
+    list<Net *> rip_net_set;
+    for (int i = 0; i < 10; i++)
+    {
+        int dir = (cong_map_vec[i].first.first > cong_map_vec[i].first.second) ? 1 : 0;
+        auto ch_name = get_channel_name(cong_map_vec[i].first.first, cong_map_vec[i].first.second);
+        auto ch = map_to_channel[ch_name];
+        rip_net_set.insert(rip_net_set.end(), ch->passed_nets[dir].begin(), ch->passed_nets[dir].end());
+    }
+    
+    /*********************************************top 5*********************************************/
+    /*//get top1 tdm channel and direction
     int dir1 = (top1_tdm_channel.first > top1_tdm_channel.second) ? 1 : 0;
     auto ch_name1 = get_channel_name(top1_tdm_channel.first, top1_tdm_channel.second);
     auto ch1 = map_to_channel[ch_name1];
@@ -3599,17 +3622,17 @@ void FPGA_Gr::congestion_RR() //CRR
     int dir5 = (top5_tdm_channel.first > top5_tdm_channel.second) ? 1 : 0;
     auto ch_name5 = get_channel_name(top5_tdm_channel.first, top5_tdm_channel.second);
     auto ch5 = map_to_channel[ch_name5];
-    before_top5_chTDM_CCR = top5_tdm;
-
+    before_top5_chTDM_CCR = top5_tdm;*/
     /**************************************************************************************************/
 
     //rip-up nets and compute criticality
     vector<pair<Net *, double>> ripped_net; //net, crit
-    auto rip_net_set = ch1->passed_nets[dir1];
+    /*rip_net_set = ch1->passed_nets[dir1];
     rip_net_set.insert(rip_net_set.end(), ch2->passed_nets[dir2].begin(), ch2->passed_nets[dir2].end());
     rip_net_set.insert(rip_net_set.end(), ch3->passed_nets[dir2].begin(), ch3->passed_nets[dir2].end());
     rip_net_set.insert(rip_net_set.end(), ch4->passed_nets[dir2].begin(), ch4->passed_nets[dir2].end());
-    rip_net_set.insert(rip_net_set.end(), ch5->passed_nets[dir2].begin(), ch5->passed_nets[dir2].end());
+    rip_net_set.insert(rip_net_set.end(), ch5->passed_nets[dir2].begin(), ch5->passed_nets[dir2].end());*/
+    cout << "\n\t#ripped signals = " << rip_net_set.size() << endl;
 
     rip_net_set.sort();
     rip_net_set.unique();
@@ -3636,15 +3659,35 @@ void FPGA_Gr::congestion_RR() //CRR
         //show_tree(n_ptr->rtree_root);
     }
 
-    after_top1_chTDM_CCR = channel_TDM(top1_tdm_channel.first, top1_tdm_channel.second);
-    after_top2_chTDM_CCR = channel_TDM(top2_tdm_channel.first, top2_tdm_channel.second);
-    after_top3_chTDM_CCR = channel_TDM(top3_tdm_channel.first, top3_tdm_channel.second);
-    after_top4_chTDM_CCR = channel_TDM(top4_tdm_channel.first, top4_tdm_channel.second);
-    after_top5_chTDM_CCR = channel_TDM(top5_tdm_channel.first, top5_tdm_channel.second);
+    //reset congestion map
+    for (auto &cm : congestion_map)
+    {
+        cm.second = 0;
+    }
+}
+
+void FPGA_Gr::set_after_conj_cost()
+{
+    
+    /*after_top1_chTDM_CCR = congestion_map[make_pair(top1_tdm_channel.first, top1_tdm_channel.second)];
+    after_top2_chTDM_CCR = congestion_map[make_pair(top2_tdm_channel.first, top2_tdm_channel.second)];
+    after_top3_chTDM_CCR = congestion_map[make_pair(top3_tdm_channel.first, top3_tdm_channel.second)];
+    after_top4_chTDM_CCR = congestion_map[make_pair(top4_tdm_channel.first, top4_tdm_channel.second)];
+    after_top5_chTDM_CCR = congestion_map[make_pair(top5_tdm_channel.first, top5_tdm_channel.second)];*/
+    
+    
+    after_conj_cost.resize(10);
+    for (int i = 0; i < 10; i++)
+    {
+        auto conj_cost = congestion_map[make_pair(cong_map_vec[i].first.first, cong_map_vec[i].first.second)];
+        after_conj_cost[i] = conj_cost;
+    }
+
+    cong_map_vec.clear();
 }
 
 void FPGA_Gr::update_history_cost()
-{
+{   
     for (auto &chd : channel_demand)
     {
         int direct = (chd.first.first < chd.first.second) ? 0 : 1; //min-->max : 0, max-->min : 1
@@ -3657,6 +3700,13 @@ void FPGA_Gr::update_history_cost()
 
         if (cur_channel_tdm > 1)
         {
+            for (int i = 0; i < 10; i++)
+            {
+                
+                ch->history_penalty[direct] += 0.2;
+            }
+            
+            
             if (after_top1_chTDM_CCR >= before_top1_chTDM_CCR && before_top1_chTDM_CCR != 0 && after_top1_chTDM_CCR != 0)
             {
                 ch->history_penalty[direct] += 0.2;
@@ -3991,7 +4041,7 @@ double FPGA_Gr::compute_cost_for_CCR(Net &n, const vector<int> &path, const SubN
 
         appr_tdm = (appr_tdm < 1) ? 1 : appr_tdm;
         double base_cost = weight * appr_tdm;
-        double congestion_cost = cost_par + (base_cost + 100 * his_cost);
+        double congestion_cost = cost_par + (1.5 * base_cost + his_cost);
         double cost_cur = congestion_cost;
 
         cost_par = cost_cur;

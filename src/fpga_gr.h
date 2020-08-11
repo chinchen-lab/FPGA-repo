@@ -169,6 +169,11 @@ public:
     map<pair<int, int>, int> channel_demand; //2 fpga --> demand signals
     map<pair<int, int>, Channel *> map_to_channel;
     map<pair<int, int>, int> channel_capacity; //2 fpga --> channel capacity
+    map<pair<int, int>, int> channel_total_edge_weight;
+    map<pair<int, int>, int> congestion_map;
+    vector<pair<pair<int, int>, int>> cong_map_vec;
+    vector<int> after_conj_cost;
+    vector<int> after_total_weight;
 
     //2020/07/19
     pair<int, int> top1_tdm_channel;
@@ -244,6 +249,9 @@ public:
     void reroute_net(Net *n);
     double compute_cost_for_CCR(Net &, const vector<int> &, const SubNet &, int &sink_num);
     void update_history_cost();
+
+    //2020/08/11
+    void set_after_conj_cost();
 };
 
 #endif
