@@ -50,7 +50,7 @@ int main(int argc, char **argv)
      double init_cost = fgr.compute_TDM_cost();
      double initt, rrt;
      initt = (double)(clock() - init_time) / (double)CLOCKS_PER_SEC;
-     cout << "initial cost = " << fixed << setprecision(0) << init_cost << ", avg TDM = " << fgr.avg_tdm_ratio << ", "
+     cout << "initial cost = " << fixed << setprecision(0) << init_cost << ", avg TDM = " << fgr.avg_tdm_ratio
           << ", time = " << fixed << setprecision(2)
           << initt << " seconds" << endl;
 

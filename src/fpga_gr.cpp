@@ -3513,7 +3513,6 @@ void FPGA_Gr::initial_route_result()
     }
 
     total_demand = 0;
-    top1_tdm = 0;
     mintdm = INT_MAX;
 }
 
@@ -3652,28 +3651,6 @@ void FPGA_Gr::update_history_cost()
                     break;
                 }
             }*/
-            
-            
-            if (after_top1_chTDM_CCR >= before_top1_chTDM_CCR && before_top1_chTDM_CCR != 0 && after_top1_chTDM_CCR != 0)
-            {
-                ch->history_penalty[direct] += 0.2;
-            }
-            else if (after_top2_chTDM_CCR >= before_top2_chTDM_CCR && before_top2_chTDM_CCR != 0 && after_top2_chTDM_CCR != 0)
-            {
-                ch->history_penalty[direct] += 0.2;
-            }
-            else if (after_top3_chTDM_CCR >= before_top3_chTDM_CCR && before_top3_chTDM_CCR != 0 && after_top3_chTDM_CCR != 0)
-            {
-                ch->history_penalty[direct] += 0.2;
-            }
-            else if (after_top4_chTDM_CCR >= before_top4_chTDM_CCR && before_top4_chTDM_CCR != 0 && after_top4_chTDM_CCR != 0)
-            {
-                ch->history_penalty[direct] += 0.2;
-            }
-            else if (after_top5_chTDM_CCR >= before_top5_chTDM_CCR && before_top5_chTDM_CCR != 0 && after_top5_chTDM_CCR != 0)
-            {
-                ch->history_penalty[direct] += 0.2;
-            }
 
             ch->history_cost[direct] = cur_channel_tdm * ch->history_penalty[direct];
         }
