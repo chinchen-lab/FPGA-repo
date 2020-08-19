@@ -184,6 +184,7 @@ public:
         subnetbased = false;
     }
     ~FPGA_Gr() {}
+    
     void getfile(char *, char *);
     void breakdown(); //break down all net into 2 pin subnet
     void construct_table();
@@ -200,6 +201,7 @@ public:
     int channel_used(int, int);
     double channel_TDM(int, int);
     double compute_TDM_cost();
+    int ret_channel_capacity(const int & , const int &);
     double comptue_tree_TDM_cost(Tree_Node *);
     void record_net_channel_used();
     void show_net_channel_table();

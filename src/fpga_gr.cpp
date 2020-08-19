@@ -769,6 +769,11 @@ void FPGA_Gr::sub_channel_demand(const int &s, const int &t)
     total_demand--;
 }
 
+int FPGA_Gr::ret_channel_capacity(const int &s, const int &t)
+{
+    return channel_capacity[make_pair(s, t)];
+}
+
 void FPGA_Gr::global_routing_ver2()
 {
     int routed_net = 0;

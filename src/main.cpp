@@ -50,14 +50,15 @@ int main(int argc, char **argv)
      double init_cost = fgr.compute_TDM_cost();
      double initt, rrt;
      initt = (double)(clock() - init_time) / (double)CLOCKS_PER_SEC;
-     cout << "initial cost = " << fixed << setprecision(0) << init_cost << ", avg TDM = " << fgr.avg_tdm_ratio
+     cout << "\ninitial cost = " << fixed << setprecision(0) << init_cost << ", avg TDM = " << fgr.avg_tdm_ratio
           << ", time = " << fixed << setprecision(2)
-          << initt << " seconds" << endl;
+          << initt << " seconds\n" << endl;
 
      //fgr.show_congestion_map();
 
      /*---------Rip up and reroute---------*/
      double old_cost = init_cost;
+     double total_impr = 0;
      for (int i = 0; i < 5; i++)
      {
           cout << "iter " << i + 1 << " : ";
@@ -69,11 +70,13 @@ int main(int argc, char **argv)
           double rr_cost = fgr.compute_TDM_cost();
           fgr.set_after_conj_cost();
           rrt = (double)(clock() - rrtime) / (double)CLOCKS_PER_SEC;
+          double improve = (old_cost - rr_cost) / old_cost * 100;
+          total_impr += improve;
 
           cout << "\treroute cost = " << fixed << setprecision(0) << rr_cost
                << "\n\ttime = " << fixed << setprecision(2) << rrt << " seconds" << "\n\tavg TDM = " << fgr.avg_tdm_ratio
-               << "\n\timprove = " << fixed << setprecision(2)
-               << (old_cost - rr_cost) / old_cost * 100 << "%" << endl;
+               << "\n\timprove = " << fixed << setprecision(2) << improve << "%" 
+               << "\n\ttotal improve = " << fixed << setprecision(2) << total_impr << "%" << endl;
 
           old_cost = rr_cost;          
      }
