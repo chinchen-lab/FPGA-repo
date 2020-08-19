@@ -151,17 +151,9 @@ public:
     int total_demand;
     double total_cost, avg_sk_weight;
     double avg_tdm_ratio;
-    int top1_tdm, mintdm;
-    int top2_tdm, top3_tdm, top4_tdm, top5_tdm;
+    int mintdm;
     double maxsgw, minsgw; // max and min signal weight
     bool subnetbased;
-    
-    //befor and after tdm (top5)
-    int before_top1_chTDM_CCR, after_top1_chTDM_CCR;
-    int before_top2_chTDM_CCR, after_top2_chTDM_CCR;
-    int before_top3_chTDM_CCR, after_top3_chTDM_CCR;
-    int before_top4_chTDM_CCR, after_top4_chTDM_CCR;
-    int before_top5_chTDM_CCR, after_top5_chTDM_CCR;
 
     vector<FPGA> fpga;
     vector<Net> net;
@@ -187,13 +179,7 @@ public:
     {
         round = 1;
         sink_num = total_cost = total_demand = 0;
-        maxsgw = top1_tdm = top2_tdm = top3_tdm = top4_tdm = top5_tdm = 0;
-        before_top1_chTDM_CCR = after_top1_chTDM_CCR = 0;
-        before_top2_chTDM_CCR = after_top2_chTDM_CCR = 0;
-        before_top3_chTDM_CCR = after_top3_chTDM_CCR = 0;
-        before_top4_chTDM_CCR = after_top4_chTDM_CCR = 0;
-        before_top5_chTDM_CCR = after_top5_chTDM_CCR = 0;
-
+        maxsgw = 0;
         minsgw = mintdm = INT_MAX;
         subnetbased = false;
     }

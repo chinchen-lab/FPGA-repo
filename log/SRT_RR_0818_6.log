@@ -5,3 +5,9 @@ initial routing...OK
 initial cost = 570442230586, avg TDM = 0, , time = 3836.58 seconds
 iter 1 : 
 	#ripped signals = 361089
+	reroute cost = 537295830454
+	time = 59686.75 seconds
+	avg TDM = 0.00
+	improve = 5.81%
+iter 2 : 
+	#ripped signals = 594232
