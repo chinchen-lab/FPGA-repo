@@ -1,0 +1,37 @@
+Loading files : ../../benchmark/testcase_new/sy3r.csv
+Loading files : ../../benchmark/testcase_new/syn3.csv
+construct path table...OK
+initial routing...OK
+initial cost = 22523050061, avg TDM = 0, , time = 85.71 seconds
+iter 0 : 
+	#ripped signals = 48316
+	reroute cost = 22422098901
+	time = 1444.80 seconds
+	avg TDM = 0.00
+	improve = 0.45%
+iter 1 : 
+	#ripped signals = 132520
+	reroute cost = 22408189997
+	time = 1956.04 seconds
+	avg TDM = 0.00
+	improve = 0.51%
+iter 2 : 
+	#ripped signals = 139960
+	reroute cost = 22399055703
+	time = 1963.37 seconds
+	avg TDM = 0.00
+	improve = 0.55%
+iter 3 : 
+	#ripped signals = 138650
+	reroute cost = 22402655702
+	time = 2795.63 seconds
+	avg TDM = 0.00
+	improve = 0.53%
+iter 4 : 
+	#ripped signals = 138350
+	reroute cost = 22400422286
+	time = 3110.14 seconds
+	avg TDM = 0.00
+	improve = 0.54%
+check all net have been routed correctly...OK
+runtime = 3195.85 seconds

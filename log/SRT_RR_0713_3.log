@@ -5,3 +5,33 @@ initial routing...OK
 initial cost = 22693798631, avg TDM = 0, , time = 89.10 seconds
 iter 0 : 
 	#ripped signals = 116182
+	reroute cost = 22324670426
+	time = 2227.79 seconds
+	avg TDM = 0.00
+	improve = 1.63%
+iter 1 : 
+	#ripped signals = 195548
+	reroute cost = 22324257409
+	time = 3801.67 seconds
+	avg TDM = 0.00
+	improve = 1.63%
+iter 2 : 
+	#ripped signals = 192756
+	reroute cost = 22331215947
+	time = 4550.36 seconds
+	avg TDM = 0.00
+	improve = 1.60%
+iter 3 : 
+	#ripped signals = 191130
+	reroute cost = 22319228793
+	time = 5797.92 seconds
+	avg TDM = 0.00
+	improve = 1.65%
+iter 4 : 
+	#ripped signals = 190254
+	reroute cost = 22311135925
+	time = 7413.84 seconds
+	avg TDM = 0.00
+	improve = 1.69%
+check all net have been routed correctly...OK
+runtime = 7502.95 seconds

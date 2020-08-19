@@ -75,6 +75,7 @@ public:
     vector<pair<int, int>> channels;
     Tree_Node *rtree_root; //routing tree root
     map<pair<int, int>, int> edge_crit;
+    map<pair<int, int>, double> chan_penalty;
 
     int total_tree_edge; //record # of tree edge
     double signal_weight;

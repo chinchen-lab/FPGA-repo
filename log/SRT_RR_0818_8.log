@@ -1,0 +1,13 @@
+Loading files : ../../benchmark/testcase_new/sy8r.csv
+Loading files : ../../benchmark/testcase_new/syn8.csv
+construct path table...OK
+initial routing...OK
+initial cost = 298995572771, avg TDM = 0, , time = 1311.06 seconds
+iter 1 : 
+	#ripped signals = 351713
+	reroute cost = 284101784746
+	time = 26742.67 seconds
+	avg TDM = 0.00
+	improve = 4.98%
+iter 2 : 
+	#ripped signals = 643216

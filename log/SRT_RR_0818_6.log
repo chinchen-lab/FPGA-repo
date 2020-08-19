@@ -1,0 +1,7 @@
+Loading files : ../../benchmark/testcase_new/sy6r.csv
+Loading files : ../../benchmark/testcase_new/syn6.csv
+construct path table...OK
+initial routing...OK
+initial cost = 570442230586, avg TDM = 0, , time = 3836.58 seconds
+iter 1 : 
+	#ripped signals = 361089

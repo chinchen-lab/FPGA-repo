@@ -57,10 +57,11 @@ int main(int argc, char **argv)
      //fgr.show_congestion_map();
 
      /*---------Rip up and reroute---------*/
+     double old_cost = init_cost;
      for (int i = 0; i < 5; i++)
      {
-          cout << "iter " << i << " : ";
-          fgr.update_history_cost();
+          cout << "iter " << i + 1 << " : ";
+          //fgr.update_history_cost();
           auto rrtime = clock();
           fgr.congestion_RR();
           //fgr.subtree_sink_RR();
@@ -72,7 +73,9 @@ int main(int argc, char **argv)
           cout << "\treroute cost = " << fixed << setprecision(0) << rr_cost
                << "\n\ttime = " << fixed << setprecision(2) << rrt << " seconds" << "\n\tavg TDM = " << fgr.avg_tdm_ratio
                << "\n\timprove = " << fixed << setprecision(2)
-               << (init_cost - rr_cost) / init_cost * 100 << "%" << endl;          
+               << (old_cost - rr_cost) / old_cost * 100 << "%" << endl;
+
+          old_cost = rr_cost;          
      }
 
      fgr.check_result();

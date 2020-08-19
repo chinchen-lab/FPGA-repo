@@ -11,3 +11,27 @@ iter 0 :
 	improve = 4.84%
 iter 1 : 
 	#ripped signals = 81524
+	reroute cost = 1671438495
+	time = 242.75 seconds
+	avg TDM = 0.00
+	improve = 5.21%
+iter 2 : 
+	#ripped signals = 81876
+	reroute cost = 1670549860
+	time = 279.06 seconds
+	avg TDM = 0.00
+	improve = 5.26%
+iter 3 : 
+	#ripped signals = 81170
+	reroute cost = 1670294042
+	time = 329.38 seconds
+	avg TDM = 0.00
+	improve = 5.27%
+iter 4 : 
+	#ripped signals = 83796
+	reroute cost = 1669365816
+	time = 376.58 seconds
+	avg TDM = 0.00
+	improve = 5.33%
+check all net have been routed correctly...OK
+runtime = 407.50 seconds

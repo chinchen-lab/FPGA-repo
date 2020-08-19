@@ -1,9 +1,0 @@
-Loading files : ../../benchmark/testcase_new/sy9r.csv
-Loading files : ../../benchmark/testcase_new/syn9.csv
-construct path table...OK
-initial routing...OK
-initial cost = 410565708975
-iter 0 : reroute cost = 409872932082
-improve = 0.17%
-check all net have been routed correctly...OK
-runtime = 12501.19 seconds

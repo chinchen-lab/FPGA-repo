@@ -3389,7 +3389,7 @@ void FPGA_Gr::subtree_RR() //SBT RR
 void FPGA_Gr::check_result()
 {
     //check all nets have been routed correctly
-    cout << "check all net have been routed correctly...";
+    cout << "check all signals have been routed correctly...";
     for (const auto &n : net)
     {
         if (n.rtree_root->fpga_id != n.source) //檢查tree的root是否為net的source
@@ -3585,16 +3585,30 @@ void FPGA_Gr::congestion_RR() //CRR
     sort(cong_map_vec.begin(), cong_map_vec.end(), comp_conj_vec_map);
 
     list<Net *> rip_net_set;
+    int rip_num = cong_map_vec.size() * 0.1;
     for (int i = 0; i < 10; i++)
     {
         int dir = (cong_map_vec[i].first.first > cong_map_vec[i].first.second) ? 1 : 0;
         auto ch_name = get_channel_name(cong_map_vec[i].first.first, cong_map_vec[i].first.second);
         auto ch = map_to_channel[ch_name];
-        rip_net_set.insert(rip_net_set.end(), ch->passed_nets[dir].begin(), ch->passed_nets[dir].end());
+
+        for (auto &n : ch->passed_nets[dir])
+        {
+            if (n->chan_penalty.count(ch_name) > 0)
+            {
+                n->chan_penalty[ch_name] += 0.05;
+            }
+            else
+            {
+                n->chan_penalty[ch_name] = 1.05; //防止再走回原channel
+            }
+
+            rip_net_set.push_back(n);
+        }
     }
     
-    /*********************************************top 5*********************************************/
-    /*//get top1 tdm channel and direction
+    /*********************************************top 5*********************************************
+    //get top1 tdm channel and direction
     int dir1 = (top1_tdm_channel.first > top1_tdm_channel.second) ? 1 : 0;
     auto ch_name1 = get_channel_name(top1_tdm_channel.first, top1_tdm_channel.second);
     auto ch1 = map_to_channel[ch_name1];
@@ -3622,16 +3636,82 @@ void FPGA_Gr::congestion_RR() //CRR
     int dir5 = (top5_tdm_channel.first > top5_tdm_channel.second) ? 1 : 0;
     auto ch_name5 = get_channel_name(top5_tdm_channel.first, top5_tdm_channel.second);
     auto ch5 = map_to_channel[ch_name5];
-    before_top5_chTDM_CCR = top5_tdm;*/
-    /**************************************************************************************************/
+    before_top5_chTDM_CCR = top5_tdm;
+    **************************************************************************************************/
 
     //rip-up nets and compute criticality
     vector<pair<Net *, double>> ripped_net; //net, crit
-    /*rip_net_set = ch1->passed_nets[dir1];
-    rip_net_set.insert(rip_net_set.end(), ch2->passed_nets[dir2].begin(), ch2->passed_nets[dir2].end());
-    rip_net_set.insert(rip_net_set.end(), ch3->passed_nets[dir2].begin(), ch3->passed_nets[dir2].end());
-    rip_net_set.insert(rip_net_set.end(), ch4->passed_nets[dir2].begin(), ch4->passed_nets[dir2].end());
-    rip_net_set.insert(rip_net_set.end(), ch5->passed_nets[dir2].begin(), ch5->passed_nets[dir2].end());*/
+
+    /*for (auto &n : ch1->passed_nets[dir1])
+    {        
+        if (n->chan_penalty.count(ch1->name) > 0)
+        {
+            n->chan_penalty[ch1->name] += 0.2;
+        }
+        else
+        {
+            n->chan_penalty[ch1->name] = 1.2; //防止再走回原channel
+        }
+
+        rip_net_set.push_back(n);
+    }
+
+    for (auto &n : ch2->passed_nets[dir2])
+    {
+        if (n->chan_penalty.count(ch2->name) > 0)
+        {
+            n->chan_penalty[ch2->name] += 0.2;
+        }
+        else
+        {
+            n->chan_penalty[ch2->name] = 1.2; //防止再走回原channel
+        }
+
+        rip_net_set.push_back(n);
+    }
+
+    for (auto &n : ch3->passed_nets[dir3])
+    {        
+        if (n->chan_penalty.count(ch3->name) > 0)
+        {
+            n->chan_penalty[ch3->name] += 0.2;
+        }
+        else
+        {
+            n->chan_penalty[ch3->name] = 1.2; //防止再走回原channel
+        }
+
+        rip_net_set.push_back(n);
+    }
+
+    for (auto &n : ch4->passed_nets[dir4])
+    {        
+        if (n->chan_penalty.count(ch4->name) > 0)
+        {
+            n->chan_penalty[ch4->name] += 0.2;
+        }
+        else
+        {
+            n->chan_penalty[ch4->name] = 1.2; //防止再走回原channel
+        }
+
+        rip_net_set.push_back(n);
+    }
+
+    for (auto &n : ch5->passed_nets[dir5])
+    {        
+        if (n->chan_penalty.count(ch5->name) > 0)
+        {
+            n->chan_penalty[ch5->name] += 0.2;
+        }
+        else
+        {
+            n->chan_penalty[ch5->name] = 1.2; //防止再走回原channel
+        }
+
+        rip_net_set.push_back(n);
+    }*/
+    
     cout << "\n\t#ripped signals = " << rip_net_set.size() << endl;
 
     rip_net_set.sort();
@@ -3669,21 +3749,21 @@ void FPGA_Gr::congestion_RR() //CRR
 void FPGA_Gr::set_after_conj_cost()
 {
     
-    /*after_top1_chTDM_CCR = congestion_map[make_pair(top1_tdm_channel.first, top1_tdm_channel.second)];
+    after_top1_chTDM_CCR = congestion_map[make_pair(top1_tdm_channel.first, top1_tdm_channel.second)];
     after_top2_chTDM_CCR = congestion_map[make_pair(top2_tdm_channel.first, top2_tdm_channel.second)];
     after_top3_chTDM_CCR = congestion_map[make_pair(top3_tdm_channel.first, top3_tdm_channel.second)];
     after_top4_chTDM_CCR = congestion_map[make_pair(top4_tdm_channel.first, top4_tdm_channel.second)];
-    after_top5_chTDM_CCR = congestion_map[make_pair(top5_tdm_channel.first, top5_tdm_channel.second)];*/
+    after_top5_chTDM_CCR = congestion_map[make_pair(top5_tdm_channel.first, top5_tdm_channel.second)];
     
     
-    after_conj_cost.resize(10);
+    /*after_conj_cost.resize(10);
     for (int i = 0; i < 10; i++)
     {
         auto conj_cost = congestion_map[make_pair(cong_map_vec[i].first.first, cong_map_vec[i].first.second)];
         after_conj_cost[i] = conj_cost;
     }
 
-    cong_map_vec.clear();
+    cong_map_vec.clear();*/
 }
 
 void FPGA_Gr::update_history_cost()
@@ -3700,11 +3780,14 @@ void FPGA_Gr::update_history_cost()
 
         if (cur_channel_tdm > 1)
         {
-            for (int i = 0; i < 10; i++)
+            /*for (int i = 0; i < 10; i++)
             {
-                
-                ch->history_penalty[direct] += 0.2;
-            }
+                if(after_conj_cost[i] >= cong_map_vec[i].second)
+                {
+                    ch->history_penalty[direct] += 0.2;
+                    break;
+                }
+            }*/
             
             
             if (after_top1_chTDM_CCR >= before_top1_chTDM_CCR && before_top1_chTDM_CCR != 0 && after_top1_chTDM_CCR != 0)
@@ -4016,11 +4099,9 @@ double FPGA_Gr::compute_cost_for_CCR(Net &n, const vector<int> &path, const SubN
         double his_cost = ch->history_cost[direct];
 
         //check weight
-
         if (i > 0)
         {
             //check if current node is a sink ?
-
             if (sink_lut.count(path[i]) > 0)
             {
                 sink_num++;
@@ -4039,9 +4120,17 @@ double FPGA_Gr::compute_cost_for_CCR(Net &n, const vector<int> &path, const SubN
             ch_used = 0;
         }
 
+        //計算net的history channel penalty
+        double nch_penalty = 1;
+        if (n.chan_penalty.count(ch_name) > 0) //存在penalty
+        {
+            nch_penalty = n.chan_penalty[ch_name];
+        }
+        
+        
         appr_tdm = (appr_tdm < 1) ? 1 : appr_tdm;
         double base_cost = weight * appr_tdm;
-        double congestion_cost = cost_par + (1.5 * base_cost + his_cost);
+        double congestion_cost = cost_par + (nch_penalty * base_cost);
         double cost_cur = congestion_cost;
 
         cost_par = cost_cur;
