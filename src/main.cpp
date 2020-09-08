@@ -31,9 +31,10 @@ int main(int argc, char **argv)
      //test random
      int multi_round = 3; //跑幾次init route(含第一次)
 
-     fgr.getfile(f11, f21);
      cout << "Loading files : " << f11 << endl;
      cout << "Loading files : " << f21 << endl;
+     fgr.getfile(f11, f21);
+     
 
      fgr.breakdown();
      cout << "construct path table...";
@@ -50,7 +51,8 @@ int main(int argc, char **argv)
      double init_cost = fgr.compute_TDM_cost();
      double initt, rrt;
      initt = (double)(clock() - init_time) / (double)CLOCKS_PER_SEC;
-     cout << "\ninitial cost = " << fixed << setprecision(0) << init_cost << ", avg TDM = " << fgr.avg_tdm_ratio
+     cout << "\ninitial cost = " << fixed << setprecision(0) << init_cost << ", MAX TDM = " << fgr.maxtdm
+     
           << ", time = " << fixed << setprecision(2)
           << initt << " seconds\n" << endl;
 
@@ -74,7 +76,7 @@ int main(int argc, char **argv)
           total_impr += improve;
 
           cout << "\treroute cost = " << fixed << setprecision(0) << rr_cost
-               << "\n\ttime = " << fixed << setprecision(2) << rrt << " seconds" << "\n\tavg TDM = " << fgr.avg_tdm_ratio
+               << "\n\ttime = " << fixed << setprecision(2) << rrt << " seconds" << "\n\tMAX TDM = " << fgr.maxtdm
                << "\n\timprove = " << fixed << setprecision(2) << improve << "%" 
                << "\n\ttotal improve = " << fixed << setprecision(2) << total_impr << "%" << endl;
 

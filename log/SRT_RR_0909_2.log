@@ -1,0 +1,15 @@
+Loading files : ../../benchmark/testcase_new/sy2r.csv
+Loading files : ../../benchmark/testcase_new/syn2.csv
+
+#FPGAs = 56
+#interconnections = 157
+#signals = 35155
+capacity = 70
+
+construct path table...OK
+initial routing...OK
+
+initial cost = 923349427, MAX TDM = 91, time = 6.14 seconds
+
+iter 1 : 
+	#ripped signals = 19491(55.44%)

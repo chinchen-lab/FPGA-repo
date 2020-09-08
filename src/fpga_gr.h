@@ -69,6 +69,7 @@ public:
     double total_sink_weight;
     double criticality;
     bool sorted;
+    bool ripped[5];
 
     vector<Sink> sink;
     vector<SubNet> sbnet;
@@ -149,9 +150,10 @@ public:
     int fpga_num;
     int sink_num;
     int total_demand;
+    int capacity;
     double total_cost, avg_sk_weight;
     double avg_tdm_ratio;
-    int mintdm;
+    int mintdm, maxtdm;
     double maxsgw, minsgw; // max and min signal weight
     bool subnetbased;
 
@@ -165,8 +167,13 @@ public:
     map<pair<int, int>, int> channel_total_edge_weight;
     map<pair<int, int>, int> congestion_map;
     vector<pair<pair<int, int>, int>> cong_map_vec;
+    map<pair<int, int>, int> old_map_vec;
+    map<pair<int, int>, int> RRtimes;
     vector<int> after_conj_cost;
     vector<int> after_total_weight;
+
+    //2020/08/31 統計重複RR個數
+    vector<bool> repeat_RR;
 
     //2020/07/19
     pair<int, int> top1_tdm_channel;
@@ -180,6 +187,7 @@ public:
         round = 1;
         sink_num = total_cost = total_demand = 0;
         maxsgw = 0;
+        maxtdm = 0;
         minsgw = mintdm = INT_MAX;
         subnetbased = false;
     }
@@ -241,6 +249,9 @@ public:
 
     //2020/08/11
     void set_after_conj_cost();
+
+    //2020/09/01
+    void add_ch_RRtimes(pair<int, int>);
 };
 
 #endif

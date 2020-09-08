@@ -1,0 +1,15 @@
+Loading files : ../../benchmark/testcase_new/sy8r.csv
+Loading files : ../../benchmark/testcase_new/syn8.csv
+
+#FPGAs = 157
+#interconnections = 803
+#signals = 610675
+capacity = 90
+
+construct path table...OK
+initial routing...OK
+
+initial cost = 329648768372, MAX TDM = 391, time = 1299.23 seconds
+
+iter 1 : 
+	#ripped signals = 361224(59.15%)

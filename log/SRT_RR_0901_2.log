@@ -1,0 +1,55 @@
+Loading files : ../../benchmark/testcase_new/sy2r.csv
+Loading files : ../../benchmark/testcase_new/syn2.csv
+
+#FPGAs = 56
+#interconnections = 157
+#signals = 35155
+capacity = 70
+
+construct path table...OK
+initial routing...OK
+
+initial cost = 923349427, MAX TDM = 91, time = 7.40 seconds
+
+iter 1 : 
+	#ripped signals = 19491(55.44%)
+	repeat num = 0
+	reroute cost = 881708475
+	time = 31.85 seconds
+	MAX TDM = 91
+	improve = 4.51%
+	total improve = 4.51%
+iter 2 : 
+	#ripped signals = 0(0.00%)
+	repeat num = 0
+	reroute cost = 881708475
+	time = 0.28 seconds
+	MAX TDM = 91
+	improve = 0.00%
+	total improve = 4.51%
+iter 3 : 
+	#ripped signals = 0(0.00%)
+	repeat num = 0
+	reroute cost = 881708475
+	time = 0.28 seconds
+	MAX TDM = 91
+	improve = 0.00%
+	total improve = 4.51%
+iter 4 : 
+	#ripped signals = 0(0.00%)
+	repeat num = 0
+	reroute cost = 881708475
+	time = 0.29 seconds
+	MAX TDM = 91
+	improve = 0.00%
+	total improve = 4.51%
+iter 5 : 
+	#ripped signals = 0(0.00%)
+	repeat num = 0
+	reroute cost = 881708475
+	time = 0.32 seconds
+	MAX TDM = 91
+	improve = 0.00%
+	total improve = 4.51%
+check all signals have been routed correctly...OK
+runtime = 7.72 seconds

@@ -1,0 +1,8 @@
+Loading files : ../../benchmark/testcase_new/sy6r.csv
+Loading files : ../../benchmark/testcase_new/syn6.csv
+
+#FPGAs = 410
+#interconnections = 1852
+#signals = 785539
+capacity = 60
+

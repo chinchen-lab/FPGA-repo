@@ -1,0 +1,9 @@
+Loading files : ../../benchmark/testcase_new/sy7r.csv
+Loading files : ../../benchmark/testcase_new/syn7.csv
+
+#FPGAs = 73
+#interconnections = 289
+#signals = 54310
+capacity = 90
+
+construct path table...OK

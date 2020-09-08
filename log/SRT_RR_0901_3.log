@@ -1,0 +1,47 @@
+Loading files : ../../benchmark/testcase_new/sy3r.csv
+Loading files : ../../benchmark/testcase_new/syn3.csv
+
+#FPGAs = 114
+#interconnections = 350
+#signals = 302956
+capacity = 80
+
+construct path table...OK
+initial routing...OK
+
+initial cost = 43586693092, MAX TDM = 389, time = 90.79 seconds
+
+iter 1 : 
+	#ripped signals = 160545(52.99%)
+	repeat num = 0
+	reroute cost = 41324299556
+	time = 2545.33 seconds
+	MAX TDM = 389
+	improve = 5.19%
+	total improve = 5.19%
+iter 2 : 
+	#ripped signals = 11895(3.93%)
+	repeat num = 0
+	reroute cost = 41301062431
+	time = 175.53 seconds
+	MAX TDM = 389
+	improve = 0.06%
+	total improve = 5.25%
+iter 3 : 
+	#ripped signals = 156447(51.64%)
+	repeat num = 0
+	reroute cost = 41320183480
+	time = 6329.88 seconds
+	MAX TDM = 389
+	improve = -0.05%
+	total improve = 5.20%
+iter 4 : 
+	#ripped signals = 9949(3.28%)
+	repeat num = 0
+	reroute cost = 41315175240
+	time = 143.08 seconds
+	MAX TDM = 389
+	improve = 0.01%
+	total improve = 5.21%
+iter 5 : 
+	#ripped signals = 157567(52.01%)

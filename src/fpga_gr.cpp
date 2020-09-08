@@ -260,16 +260,22 @@ void FPGA_Gr::getfile(char *sysfile, char *netfile)
         }
     }
 
-    //capacity = fpga[0].nbr_pair[0].second;
-
+    int interconnect = 0;
     for (auto &f : fpga) //record index
     {
         for (size_t i = 0; i < f.nbr_pair.size(); i++)
         {
             const int &fid = f.nbr_pair[i].first;
             f.nbr_index[fid] = i;
+            interconnect++;
         }
     }
+
+    interconnect /= 2;
+
+    cout << endl;
+    cout << "#FPGAs = " << fpga.size() << endl;
+    cout << "#interconnections = " << interconnect << endl;
 
     /*
     for (auto &f : fpga)
@@ -341,6 +347,14 @@ void FPGA_Gr::getfile(char *sysfile, char *netfile)
     }
 
     avg_sk_weight = total_sink_weight / (double)sink_num;
+
+    capacity = interconnect % 100 * 1000 / fpga_num % 10 * 10;
+
+    cout << "#signals = " << net.size() << endl;
+    cout << "capacity = " << interconnect % 100 * 1000 / fpga_num % 10 * 10 << endl;
+    cout << endl;
+
+    repeat_RR.resize(net.size());
 
     /*
     for (auto &n : net)
@@ -670,7 +684,8 @@ void FPGA_Gr::construct_table_ver2()
             int nbr_id = fpga[i].nbr_pair[j].first;
             auto ch_name = get_channel_name(i, nbr_id);
             auto ch = map_to_channel[ch_name];
-            ch->capacity = fpga[i].nbr_pair[j].second;
+            //ch->capacity = fpga[i].nbr_pair[j].second;
+            ch->capacity = capacity;
         }
     }
 
@@ -1848,12 +1863,21 @@ double FPGA_Gr::compute_TDM_cost()
             n.total_edge_weight += (double)cur->edge_weight;
             total_tdm_ratio += tdm_ratio;
 
-            double conj_map_cost = (congestion_map[make_pair(par_id, cur_id)] += tdm_ratio * (double)cur->edge_weight);
-            mintdm = (tdm_ratio < mintdm) ? tdm_ratio : mintdm;
-
             //紀錄net中channel資訊
             auto ch_name = get_channel_name(par_id, cur_id);
             Channel *chan = map_to_channel[ch_name];
+
+            double repeat_ch = 1.0;
+
+            if (RRtimes.count(ch_name) > 0)
+            {
+                double times = RRtimes[ch_name];
+                repeat_ch -= (0.3 * times);
+            }
+                
+            congestion_map[ch_name] += tdm_ratio * repeat_ch * (double)cur->edge_weight;
+            maxtdm = (tdm_ratio > maxtdm) ? tdm_ratio : maxtdm;
+            mintdm = (tdm_ratio < mintdm) ? tdm_ratio : mintdm;
 
             for (auto &child : cur->children)
             {
@@ -1886,6 +1910,7 @@ double FPGA_Gr::compute_TDM_cost()
     avg_tdm_ratio = total_tdm_ratio / channel_demand.size();
     ------------*/
 
+    old_map_vec.clear();
     total_cost = cost;
     return cost;
 }
@@ -3519,6 +3544,7 @@ void FPGA_Gr::initial_route_result()
 
     total_demand = 0;
     mintdm = INT_MAX;
+    maxtdm = 0;
 }
 
 void FPGA_Gr::show_congestion_map()
@@ -3551,8 +3577,6 @@ void FPGA_Gr::show_congestion_map()
     }
 }
 
-
-
 void FPGA_Gr::congestion_RR() //CRR
 {
     //sort congestion map
@@ -3564,13 +3588,21 @@ void FPGA_Gr::congestion_RR() //CRR
 
     list<Net *> rip_net_set;
     int rip_num = cong_map_vec.size() * 0.1;
-    for (int i = 0; i < 10; i++)
+
+    //cout << "\n\tripped channels : " << endl;
+    
+    for (int i = 0; i < rip_num; i++)
     {
-        int dir = (cong_map_vec[i].first.first > cong_map_vec[i].first.second) ? 1 : 0;
-        auto ch_name = get_channel_name(cong_map_vec[i].first.first, cong_map_vec[i].first.second);
+        //int dir = (cong_map_vec[i].first.first > cong_map_vec[i].first.second) ? 1 : 0;
+        auto ch_name = cong_map_vec[i].first;
         auto ch = map_to_channel[ch_name];
 
-        for (auto &n : ch->passed_nets[dir])
+        old_map_vec[ch_name] = 1;
+        add_ch_RRtimes(ch_name);
+
+        //cout << "\t(" << ch_name.first << ", " << ch_name.second << ")" << endl;
+
+        for (auto &n : ch->passed_nets[0])
         {
             if (n->chan_penalty.count(ch_name) > 0)
             {
@@ -3581,7 +3613,42 @@ void FPGA_Gr::congestion_RR() //CRR
                 n->chan_penalty[ch_name] = 1.05; //防止再走回原channel
             }
 
-            rip_net_set.push_back(n);
+            //rip_net_set.push_back(n);
+
+            if (round == 1)
+            {
+                rip_net_set.push_back(n);
+                n->ripped[round - 1] = true;
+            }
+
+            if (round > 1)
+            {
+                if (n->ripped[round - 2] == false)
+                {
+                    rip_net_set.push_back(n);
+                    n->ripped[round - 1] = true;    
+                }
+            }
+        }
+
+        for (auto &n : ch->passed_nets[1])
+        {
+            //rip_net_set.push_back(n);
+
+            if (round == 1)
+            {
+                rip_net_set.push_back(n);
+                n->ripped[round - 1] = true;
+            }
+
+            if (round > 1)
+            {
+                if (n->ripped[round - 2] == false)
+                {
+                    rip_net_set.push_back(n);
+                    n->ripped[round - 1] = true;    
+                }
+            }
         }
     }
 
@@ -3593,9 +3660,21 @@ void FPGA_Gr::congestion_RR() //CRR
     cout << "\n\t#ripped signals = " << rip_net_set.size()
          << "(" << (double)rip_net_set.size() / (double)net.size() * 100 << "%)" << endl;
 
+    int repeated = 0;
+    auto tmp_rep = repeat_RR;
+    repeat_RR.clear();
+    repeat_RR.resize(net.size());
+
     for (auto &n : rip_net_set)
     {
         rip_up_net(*n);
+
+        if (tmp_rep[n->id] == 1)
+        {
+            repeated++;
+        }
+
+        repeat_RR[n->id] = 1;
 
         double net_avg_skw = n->total_sink_weight / (double)n->sink.size();
         double edge_weight_penalty = (n->total_edge_weight / (double)n->total_tree_edge) - net_avg_skw;
@@ -3603,6 +3682,8 @@ void FPGA_Gr::congestion_RR() //CRR
 
         ripped_net.push_back(make_pair(n, criticality));
     }
+
+    cout << "\trepeat num = " << repeated << endl;
 
     sort(ripped_net.begin(), ripped_net.end(), comp_by_second); //net order decision (sorted by criticality)
 
@@ -3620,6 +3701,9 @@ void FPGA_Gr::congestion_RR() //CRR
     {
         cm.second = 0;
     }
+    cong_map_vec.clear();
+
+    round++;
 }
 
 void FPGA_Gr::set_after_conj_cost()
@@ -3990,4 +4074,16 @@ double FPGA_Gr::compute_cost_for_CCR(Net &n, const vector<int> &path, const SubN
     cost /= (double)sink_num;
 
     return cost;
+}
+
+void FPGA_Gr::add_ch_RRtimes(pair<int, int> ch_name)
+{
+    if (RRtimes.count(ch_name) == 0)
+    {
+        RRtimes[ch_name] = 1;
+    }
+    else
+    {
+        RRtimes[ch_name]++;
+    }
 }
